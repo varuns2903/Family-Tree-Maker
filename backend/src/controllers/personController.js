@@ -183,7 +183,11 @@ exports.addChild = async (req, res) => {
       const count = allUnions.rows.length;
 
       if (count === 0) {
-        return res.status(400).json({ message: "This person has no spouse. Please add a spouse first." });
+        const newUnion = await pool.query(
+          "INSERT INTO unions (tree_id, partner_a_id) VALUES ($1, $2) RETURNING id",
+          [tree_id, id]
+        );
+        unionId = newUnion.rows[0].id;
       } else if (count === 1) {
         unionId = allUnions.rows[0].id;
       } else {

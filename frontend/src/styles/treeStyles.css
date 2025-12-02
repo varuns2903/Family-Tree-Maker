@@ -15,7 +15,7 @@
   overflow: auto;
   min-height: 80vh;
   background-color: #f8f9fa;
-  min-width: max-content;
+  min-width: max-content; /* Critical for horizontal scroll */
 }
 
 /* --- Person Card --- */
@@ -42,7 +42,7 @@
 
 .person-node.placeholder {
   width: var(--card-width);
-  height: 50px;
+  height: 40px;
 
   display: flex;
   align-items: center;

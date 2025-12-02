@@ -44,6 +44,10 @@ const buildNestedTree = (people, unions, links) => {
         id: partnerB?.id || null,
         name: partnerB?.name || "Unknown",
         gender: partnerB?.gender || "unknown",
+        birth_date: partnerB?.birth_date || null,
+        death_date: partnerB?.death_date || null,
+        is_alive: partnerB?.is_alive || null,
+        contact_info: partnerB?.contact_info || null,
         photoUrl: partnerB?.photo_url || null,
         unionId: u.id,
         children: childrenObjects 
@@ -56,6 +60,10 @@ const buildNestedTree = (people, unions, links) => {
         id: partnerA?.id || null,
         name: partnerA?.name || "Unknown",
         gender: partnerA?.gender || "unknown",
+        birth_date: partnerA?.birth_date || null,
+        death_date: partnerA?.death_date || null,
+        is_alive: partnerA?.is_alive || null,
+        contact_info: partnerA?.contact_info || null,
         photoUrl: partnerA?.photo_url || null,
         unionId: u.id,
         children: childrenObjects

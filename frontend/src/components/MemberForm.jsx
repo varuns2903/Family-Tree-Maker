@@ -4,9 +4,9 @@ const MemberForm = ({ onSubmit, initialData = {}, onCancel }) => {
   const [formData, setFormData] = useState({
     name: initialData.name || '',
     gender: initialData.gender || 'male',
-    birthDate: initialData.birthDate || '',
+    birthDate: initialData.birthDate || null,
     isAlive: initialData.isAlive !== undefined ? initialData.isAlive : true,
-    deathDate: initialData.deathDate || '',
+    deathDate: initialData.deathDate || null,
     contactInfo: initialData.contactInfo || ''
   });
 
