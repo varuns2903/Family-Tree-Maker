@@ -73,3 +73,15 @@ npm install
 # Create a .env file based on the example below
 # Start the server
 npm run dev
+```
+
+```bash
+# .env
+PORT=5000
+DB_USER=postgres
+DB_PASSWORD=your_password
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=family_tree_db
+JWT_SECRET=your_secret_key
+```
