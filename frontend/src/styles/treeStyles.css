@@ -1,0 +1,172 @@
+:root {
+  --card-width: 120px;
+  --gap-size: 40px;      /* Space between Spouses */
+  --parent-line-height: 40px; 
+  --child-line-height: 20px;
+  --line-color: #555;
+}
+
+/* --- Container --- */
+.tree-canvas {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px;
+  overflow: auto;
+  min-height: 80vh;
+  background-color: #f8f9fa;
+  min-width: max-content;
+}
+
+/* --- Person Card --- */
+.person-node {
+  width: var(--card-width);
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+  z-index: 10;
+  position: relative;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.person-node:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
+  border-color: #bbb;
+}
+
+.person-node.placeholder {
+  width: var(--card-width);
+  height: 50px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+
+  background-color: #fafafa;
+  border: 2px dashed #ccc;
+  color: #aaa;
+  font-weight: bold;
+  font-size: 32px;
+
+  box-shadow: none;
+}
+
+.person-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #333;
+}
+
+.person-gender {
+  font-size: 11px;
+  color: #777;
+  margin-top: 2px;
+  text-transform: capitalize;
+}
+
+/* --- Layout Architecture --- */
+.married-wrapper {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  position: relative;
+}
+
+/* 1. Left Balancer (Invisible) */
+.spacer-node {
+  width: calc(var(--card-width) + var(--gap-size));
+  flex-shrink: 0;
+  visibility: hidden;
+}
+
+/* 2. Bridge */
+.bridge-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: var(--gap-size);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.marriage-line {
+  width: 100%;
+  height: 2px;
+  background-color: var(--line-color);
+  margin-top: 25px; /* Adjust to match center of card */
+  position: relative;
+  z-index: 1;
+}
+
+.marriage-line.has-children::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  width: 2px;
+  height: var(--parent-line-height);
+  background-color: var(--line-color);
+}
+
+.bridge-children {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  padding-top: calc(25px + var(--parent-line-height));
+  display: flex;
+  justify-content: center;
+  z-index: 5;
+}
+
+/* --- Standard Connectors --- */
+.children-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 15px;
+}
+
+.vertical-connector {
+  width: 2px;
+  height: var(--parent-line-height);
+  background-color: var(--line-color);
+}
+
+.siblings-row {
+  display: flex;
+  align-items: flex-start;
+}
+
+.branch-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  padding: 0 15px; /* Horizontal spacing between siblings */
+  padding-top: var(--child-line-height);
+}
+
+.branch-node::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 2px; background-color: var(--line-color); z-index: 1;
+}
+
+.branch-node::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 50%; width: 2px; height: var(--child-line-height); background-color: var(--line-color); transform: translateX(-50%); z-index: 1;
+}
+
+.branch-node:first-child::before { left: 50%; width: 50%; }
+.branch-node:last-child::before { width: 50%; }
+.branch-node:only-child::before { display: none; }

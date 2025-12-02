@@ -1,0 +1,14 @@
+/* src/index.css */
+
+/* 1. Reset defaults and force full height */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* 2. Hide the browser window's main scrollbar */
+body {
+  overflow: hidden; 
+}
