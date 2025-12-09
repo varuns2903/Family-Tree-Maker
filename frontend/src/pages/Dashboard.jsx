@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
-import { Plus, Trash2, TreePine } from "lucide-react";
+import { getInitialTheme, toggleTheme } from "../utils/theme";
+import { Plus, Trash2, TreePine, Moon, Sun } from "lucide-react";
 import toast from "react-hot-toast";
 
 const Dashboard = () => {
+  const [isDarkMode, setIsDarkMode] = useState(getInitialTheme());
   const [trees, setTrees] = useState([]);
   const [filteredTrees, setFilteredTrees] = useState([]);
   const [search, setSearch] = useState("");
@@ -24,6 +26,11 @@ const Dashboard = () => {
     fetchUser();
     fetchTrees();
   }, []);
+
+  useEffect(() => {
+    if (isDarkMode) document.documentElement.classList.add("dark");
+    else document.documentElement.classList.remove("dark");
+  }, [isDarkMode]);
 
   useEffect(() => {
     filterAndSortTrees();
@@ -54,8 +61,7 @@ const Dashboard = () => {
       result.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
     else if (sortMode === "az")
       result.sort((a, b) => a.name.localeCompare(b.name));
-    else
-      result.sort((a, b) => b.name.localeCompare(a.name));
+    else result.sort((a, b) => b.name.localeCompare(a.name));
 
     setFilteredTrees(result);
   };
@@ -112,29 +118,41 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50 to-gray-100 p-8">
+    <div className={`min-h-screen p-8 transition-colors ${
+      isDarkMode ? "bg-gray-900 text-white" : "bg-gradient-to-b from-green-50 to-gray-100 text-gray-900"
+    }`}>
       <div className="max-w-7xl mx-auto">
+
         {/* Header */}
         <div className="flex justify-between items-center mb-10">
           <div>
             <div className="flex items-center gap-2">
-              <TreePine className="w-10 h-10 text-green-600" />
-              <h1 className="text-4xl font-extrabold text-slate-800">
-                Legacy Builder
-              </h1>
+              <TreePine className="w-10 h-10 text-green-500" />
+              <h1 className="text-4xl font-extrabold">Legacy Builder</h1>
             </div>
-            <p className="text-slate-600 mt-2">
-              Welcome{user ? `, ${user.name}` : ""}! Craft and explore your
-              family history.
+            <p className="mt-2">
+              Welcome{user ? `, ${user.name}` : ""}! Craft and explore your family history.
             </p>
           </div>
 
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl shadow-md transition"
-          >
-            <Plus size={20} /> New Family Tree
-          </button>
+          <div className="flex gap-3">
+            {/* Dark Mode Toggle */}
+            <button
+              onClick={() => toggleTheme(isDarkMode, setIsDarkMode)}
+              className={`p-3 rounded-xl shadow-md transition ${
+                isDarkMode ? "bg-gray-700 text-white" : "bg-white text-gray-700"
+              }`}
+            >
+              {isDarkMode ? <Moon size={18} /> : <Sun size={18} className="text-yellow-500" />}
+            </button>
+
+            <button
+              onClick={() => setShowModal(true)}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl shadow-md transition"
+            >
+              <Plus size={20} /> New Tree
+            </button>
+          </div>
         </div>
 
         {/* Search + Sort */}
@@ -144,13 +162,17 @@ const Dashboard = () => {
             placeholder="Search trees..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="p-3 w-full rounded-lg border"
+            className={`p-3 w-full rounded-lg border ${
+              isDarkMode ? "bg-gray-800 text-white border-gray-600" : "bg-white"
+            }`}
           />
 
           <select
             value={sortMode}
             onChange={(e) => setSortMode(e.target.value)}
-            className="p-3 rounded-lg border"
+            className={`p-3 rounded-lg border ${
+              isDarkMode ? "bg-gray-800 text-white border-gray-600" : "bg-white"
+            }`}
           >
             <option value="latest">Latest</option>
             <option value="az">A → Z</option>
@@ -160,11 +182,9 @@ const Dashboard = () => {
 
         {/* Empty */}
         {!filteredTrees.length && (
-          <div className="text-center text-gray-600 mt-20">
-            <TreePine className="w-20 h-20 mx-auto text-green-400 opacity-50" />
-            <p className="text-lg mt-4">
-              No family trees yet. Create one!
-            </p>
+          <div className="text-center mt-20 opacity-70">
+            <TreePine className="w-20 h-20 mx-auto" />
+            <p className="text-lg mt-4">No family trees yet. Create one!</p>
           </div>
         )}
 
@@ -174,13 +194,12 @@ const Dashboard = () => {
             <div
               key={tree._id}
               onClick={() => navigate(`/tree/${tree._id}`)}
-              className="group bg-white p-6 rounded-2xl shadow-md hover:shadow-xl hover:-translate-y-1 border transition duration-300 cursor-pointer"
+              className={`group p-6 rounded-2xl shadow-md hover:shadow-xl hover:-translate-y-1 border transition cursor-pointer ${
+                isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white"
+              }`}
             >
-              {/* Name + Actions */}
               <div className="flex justify-between items-start mb-2">
-                <h3 className="text-xl font-bold text-slate-800">
-                  {tree.name}
-                </h3>
+                <h3 className="text-xl font-bold">{tree.name}</h3>
 
                 <div className="flex gap-2">
                   <button
@@ -205,18 +224,14 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {/* Description */}
-              <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+              <p className="text-sm mb-3 opacity-90 line-clamp-2">
                 {tree.description || "No description available"}
               </p>
 
-              {/* Meta Info */}
-              <div className="text-xs text-gray-500">
+              <div className="text-xs opacity-80">
                 <p>Members: {tree.membersCount}</p>
-                <p>
-                  Updated:{" "}
-                  {new Date(tree.updatedAt).toLocaleDateString()}
-                </p>
+                <p>Created: {new Date(tree.createdAt).toLocaleDateString('en-GB')}</p>
+                <p>Updated: {new Date(tree.updatedAt).toLocaleDateString('en-GB')}</p>
               </div>
             </div>
           ))}
@@ -225,9 +240,11 @@ const Dashboard = () => {
         {/* Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white p-8 rounded-2xl w-full max-w-md shadow-lg">
+            <div className={`p-8 rounded-2xl w-full max-w-md shadow-lg ${
+              isDarkMode ? "bg-gray-800 text-white" : "bg-white"
+            }`}>
               <h2 className="text-2xl font-bold mb-6">
-                {editingTree ? "Edit Family Tree" : "New Family Tree"}
+                {editingTree ? "Edit Tree" : "New Tree"}
               </h2>
 
               <form onSubmit={editingTree ? updateTree : createTree}>
@@ -240,7 +257,9 @@ const Dashboard = () => {
                       ? setEditTreeName(e.target.value)
                       : setNewTreeName(e.target.value)
                   }
-                  className="w-full border p-3 rounded-lg mb-3"
+                  className={`w-full border p-3 rounded-lg mb-3 ${
+                    isDarkMode ? "bg-gray-700 border-gray-600 text-white" : ""
+                  }`}
                   required
                 />
 
@@ -248,23 +267,27 @@ const Dashboard = () => {
                   placeholder="Short description"
                   rows="3"
                   value={
-                    editingTree
-                      ? editTreeDescription
-                      : newTreeDescription
+                    editingTree ? editTreeDescription : newTreeDescription
                   }
                   onChange={(e) =>
                     editingTree
                       ? setEditTreeDescription(e.target.value)
                       : setNewTreeDescription(e.target.value)
                   }
-                  className="w-full border p-3 rounded-lg mb-6"
+                  className={`w-full border p-3 rounded-lg mb-6 ${
+                    isDarkMode ? "bg-gray-700 border-gray-600 text-white" : ""
+                  }`}
                 />
 
                 <div className="flex justify-end gap-3">
                   <button
                     type="button"
                     onClick={resetModal}
-                    className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition"
+                    className={`px-6 py-2 rounded-lg transition ${
+                      isDarkMode
+                        ? "bg-gray-600 hover:bg-gray-500 text-white"
+                        : "bg-gray-200 hover:bg-gray-300 text-gray-800"
+                    }`}
                   >
                     Cancel
                   </button>

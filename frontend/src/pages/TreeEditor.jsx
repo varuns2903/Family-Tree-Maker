@@ -6,6 +6,7 @@ import '@uploadcare/react-uploader/core.css';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
 import { ArrowLeft, PieChart, Palette, X, Moon, Sun } from 'lucide-react';
+import { getInitialTheme, toggleTheme } from '../utils/theme'; // ✅ theme utils
 
 const TreeEditor = () => {
   const divRef = useRef(null);
@@ -27,12 +28,7 @@ const TreeEditor = () => {
   const [linkChildrenIds, setLinkChildrenIds] = useState([]); // For linking step-children
 
   // --- THEME & STATS STATE ---
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    return false;
-  });
+  const [isDarkMode, setIsDarkMode] = useState(getInitialTheme); // ✅ synced with Dashboard + localStorage
   const [currentTemplate, setCurrentTemplate] = useState("hugo");
   const [showStats, setShowStats] = useState(false);
   const [stats, setStats] = useState({ total: 0, male: 0, female: 0, living: 0 });
@@ -264,6 +260,12 @@ const TreeEditor = () => {
     loadMembers();
   }, [treeId]);
 
+  // ✅ Sync `.dark` class on <html>, same as Dashboard
+  useEffect(() => {
+    if (isDarkMode) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+  }, [isDarkMode]);
+
   // Chart Rendering Logic
   useEffect(() => {
     if (divRef.current && nodes.length > 0) {
@@ -324,7 +326,7 @@ const TreeEditor = () => {
 
         {/* Back Button */}
         <button onClick={() => navigate('/dashboard')}
-          className={`pointer-events-auto flex items-center gap-2 px-4 py-2 rounded-lg shadow-md transition backdrop-blur 
+          className={`pointer-events-auto flex items-center gap-2 px-4 py-2 rounded-lg shadow-md transition
           ${isDarkMode ? 'bg-slate-800 text-white hover:bg-slate-700' : 'bg-white/90 text-gray-700 hover:bg-gray-200'}`}>
           <ArrowLeft size={18} /> <span className="hidden sm:inline">Back</span>
         </button>
@@ -332,7 +334,7 @@ const TreeEditor = () => {
         <div className="pointer-events-auto flex gap-3">
           {/* Template Dropdown */}
           <div className="relative group">
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition shadow-md backdrop-blur
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition shadow-md
             ${isDarkMode ? 'bg-slate-800 text-gray-200 hover:bg-slate-700' : 'bg-white/90 text-gray-700 hover:bg-gray-200'}`}>
               <Palette size={18} className="text-purple-500" />
               <span className="capitalize">{currentTemplate}</span>
@@ -340,7 +342,7 @@ const TreeEditor = () => {
             <div className="absolute right-0 top-full pt-2 w-32 hidden group-hover:block z-50">
               <div className={`rounded-lg shadow-xl border overflow-hidden
               ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}>
-                {['hugo', 'tommy', 'john', 'mila', 'polina'].map(t => (
+                {['hugo', 'tommy', 'john'].map(t => (
                   <div key={t} onClick={() => setCurrentTemplate(t)}
                     className={`px-4 py-2 text-sm cursor-pointer capitalize
                     ${currentTemplate === t ? 'font-bold text-blue-500' : ''}
@@ -352,16 +354,17 @@ const TreeEditor = () => {
             </div>
           </div>
 
-          {/* Theme Toggle */}
-          <button onClick={() => setIsDarkMode(!isDarkMode)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition shadow-md backdrop-blur
+          {/* Theme Toggle – ✅ now uses shared toggleTheme */}
+          <button
+            onClick={() => toggleTheme(isDarkMode, setIsDarkMode)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition shadow-md
             ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-white/90 hover:bg-gray-200 text-gray-700'}`}>
             {isDarkMode ? <Moon size={18} /> : <Sun size={18} className="text-orange-500" />}
           </button>
 
           {/* Stats Button */}
           <button onClick={calculateStats}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition shadow-md backdrop-blur
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition shadow-md
             ${isDarkMode ? 'bg-slate-800 text-gray-200 hover:bg-slate-700 hover:text-green-400'
                 : 'bg-white/90 text-gray-700 hover:bg-gray-200 hover:text-green-600'}`}>
             <PieChart size={18} />
@@ -379,11 +382,17 @@ const TreeEditor = () => {
       {/* SIDEBAR */}
       {sidebarOpen && (
         <div className="absolute inset-0 z-50 flex">
-          <div className="flex-1 bg-black/40 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+          <div
+            className="flex-1 bg-black/40"
+            onClick={() => setSidebarOpen(false)}
+          />
 
-          <div className={`w-[350px] h-full border-l p-4 overflow-y-auto shadow-2xl animate-slide-in transition-colors
-            ${isDarkMode ? 'bg-slate-900 border-slate-700 text-gray-100' : 'bg-white text-gray-800 border-gray-200'}`}>
-
+          <div
+            className={`w-[350px] h-full border-l p-4 overflow-y-auto shadow-2xl animate-slide-in ${isDarkMode ? 'bg-slate-900 border-slate-700 text-gray-100'
+              : 'bg-white text-gray-800 border-gray-200'}`}
+            style={{ marginLeft: "auto" }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <button className={`text-sm mb-3 transition font-medium
               ${isDarkMode ? 'text-red-400 hover:text-red-500' : 'text-red-600 hover:text-red-800'}`}
               onClick={() => setSidebarOpen(false)}>
@@ -483,7 +492,7 @@ const TreeEditor = () => {
 
                 <div className="flex gap-2 pt-4">
                   <button className={`flex-1 p-2 rounded transition font-medium ${isDarkMode ? 'bg-slate-700 hover:bg-slate-600 text-gray-200' : 'bg-gray-300 hover:bg-gray-200 text-black'}`} onClick={() => setSidebarMode("view")}>Cancel</button>
-                  <button className={`flex-1 p-2 rounded transition font-medium ${isDarkMode ? 'bg-blue-700 hover:bg-blue-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`} onClick={saveEdit}>Save</button>
+                  <button className={`flex-1 p-2 rounded transition font-medium ${isDarkMode ? 'bg-blue-700 hover:bg-blue-600 text:white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`} onClick={saveEdit}>Save</button>
                 </div>
               </div>
             )}
@@ -509,7 +518,7 @@ const TreeEditor = () => {
               <div className="space-y-3">
                 <h3 className={`font-bold text-lg ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>Select Co-Parent</h3>
                 {getSpouses(selectedNode).map(spouse => (
-                  <button key={spouse.id} className={`flex items-center gap-3 w-full p-3 border rounded transition text-left ${isDarkMode ? 'border-slate-700 hover:bg-slate-800 text-gray-200' : 'border-gray-200 hover:bg-blue-50 text-gray-800'}`} onClick={() => openAddChildForm(spouse.id)}>
+                  <button key={spouse.id} className={`flex items:center gap-3 w-full p-3 border rounded transition text-left ${isDarkMode ? 'border-slate-700 hover:bg-slate-800 text-gray-200' : 'border-gray-200 hover:bg-blue-50 text-gray-800'}`} onClick={() => openAddChildForm(spouse.id)}>
                     <img src={spouse.img || DEFAULT_IMG} className="w-10 h-10 rounded-full object-cover" /><span className="font-medium">{spouse.name}</span>
                   </button>
                 ))}
