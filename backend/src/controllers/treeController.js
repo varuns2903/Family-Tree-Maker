@@ -1,18 +1,38 @@
 const Tree = require('../models/Tree');
 const Member = require('../models/Member'); // Needed for cascade delete
 
-// @desc    Get all trees for the logged-in user
+// @desc    Get all trees for the logged-in user (with member count)
 // @route   GET /api/trees
 // @access  Private
 const getTrees = async (req, res) => {
   try {
-    // Only find trees where ownerId matches the logged-in user
-    const trees = await Tree.find({ ownerId: req.user.id }).sort({ updatedAt: -1 });
+    let trees = await Tree.find({ ownerId: req.user.id })
+      .sort({ updatedAt: -1 })
+      .lean(); // returns plain JS objects → allows adding custom fields
+
+    // Add member count for each tree
+    const treeIds = trees.map(t => t._id);
+    const counts = await Member.aggregate([
+      { $match: { treeId: { $in: treeIds } } },
+      { $group: { _id: "$treeId", count: { $sum: 1 } } }
+    ]);
+
+    const countMap = {};
+    counts.forEach(c => {
+      countMap[c._id] = c.count;
+    });
+
+    trees = trees.map(tree => ({
+      ...tree,
+      membersCount: countMap[tree._id] || 0
+    }));
+
     res.status(200).json(trees);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 // @desc    Create a new tree
 // @route   POST /api/trees
@@ -62,6 +82,39 @@ const getTreeById = async (req, res) => {
   }
 };
 
+// @desc    Update a tree
+// @route   PUT /api/trees/:id
+// @access  Private
+const updateTree = async (req, res) => {
+  try {
+    const { name, description } = req.body;
+
+    const tree = await Tree.findById(req.params.id);
+
+    if (!tree) {
+      res.status(404);
+      throw new Error('Tree not found');
+    }
+
+    // Ensure user owns the tree
+    if (tree.ownerId.toString() !== req.user.id) {
+      res.status(401);
+      throw new Error('Not authorized');
+    }
+
+    // Update allowed fields
+    if (name) tree.name = name;
+    if (description !== undefined) tree.description = description;
+
+    const updatedTree = await tree.save();
+
+    res.status(200).json(updatedTree);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+
 // @desc    Delete tree and all its members
 // @route   DELETE /api/trees/:id
 // @access  Private
@@ -82,10 +135,10 @@ const deleteTree = async (req, res) => {
 
     // CASCADE DELETE: Remove all members associated with this tree first
     await Member.deleteMany({ treeId: tree._id });
-    
+
     // Remove the tree itself
     // Note: In newer Mongoose versions use deleteOne()
-    await tree.deleteOne(); 
+    await tree.deleteOne();
 
     res.status(200).json({ id: req.params.id, message: 'Tree and all members deleted' });
   } catch (error) {
@@ -97,5 +150,6 @@ module.exports = {
   getTrees,
   createTree,
   getTreeById,
+  updateTree,
   deleteTree,
 };
