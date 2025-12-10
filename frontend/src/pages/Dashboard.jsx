@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { getInitialTheme, toggleTheme } from "../utils/theme";
-import { Plus, Trash2, TreePine, Moon, Sun, Bell, Check, X, Shield, Users, Eye } from "lucide-react"; 
+import { Plus, Trash2, TreePine, Moon, Sun, Bell, Check, X, Shield, Users, Eye, Share2 } from "lucide-react"; // ✅ Added Share2
+import ShareModal from "../components/ShareModal"; // ✅ Imported ShareModal
 import toast from "react-hot-toast";
 
 const Dashboard = () => {
@@ -16,6 +17,7 @@ const Dashboard = () => {
   // --- Modal States ---
   const [showModal, setShowModal] = useState(false);
   const [showNotifModal, setShowNotifModal] = useState(false);
+  const [sharingTreeId, setSharingTreeId] = useState(null); // ✅ State for Sharing
 
   // --- Tree Editing States ---
   const [editingTree, setEditingTree] = useState(null);
@@ -262,7 +264,19 @@ const Dashboard = () => {
                   {/* Role Badge */}
                   {getRoleBadge(tree.currentUserRole)}
 
-                  {/* Actions: Only for Owner or Editor (Edit only) */}
+                  {/* ✅ SHARE BUTTON (Added) */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSharingTreeId(tree._id);
+                    }}
+                    className="text-gray-400 hover:text-green-500 transition cursor-pointer ml-1"
+                    title="Share Tree"
+                  >
+                    <Share2 size={18} />
+                  </button>
+
+                  {/* Edit: Only for Owner or Editor */}
                   {(tree.currentUserRole === 'owner' || tree.currentUserRole === 'editor') && (
                     <button
                       onClick={(e) => {
@@ -282,7 +296,7 @@ const Dashboard = () => {
                   {tree.currentUserRole === 'owner' && (
                     <button
                       onClick={(e) => deleteTree(tree._id, e)}
-                      className="text-gray-400 hover:text-red-500 transition cursor-pointer"
+                      className="text-gray-400 hover:text-red-500 transition cursor-pointer ml-1"
                     >
                       <Trash2 size={18} />
                     </button>
@@ -408,6 +422,14 @@ const Dashboard = () => {
               )}
             </div>
           </div>
+        )}
+
+        {/* --- ✅ SHARE MODAL --- */}
+        {sharingTreeId && (
+          <ShareModal 
+            treeId={sharingTreeId} 
+            onClose={() => setSharingTreeId(null)} 
+          />
         )}
 
       </div>
