@@ -273,11 +273,34 @@ const TreeEditor = () => {
   };
 
   const openGenericAddForm = (type) => {
+    // --- 🛑 FIX: Prevent Floating Siblings ---
+    if (type === "sibling") {
+      // If the selected person has NO parents (fid/mid are null/undefined)
+      if (!selectedNode.fid && !selectedNode.mid) {
+        toast.error("Cannot add sibling: This member has no parents recorded. Please add a Father or Mother first.", {
+          duration: 4000,
+          icon: '⚠️'
+        });
+        return;
+      }
+    }
+    // ----------------------------------------
+
     setRelativeType(type);
     setLinkChildrenIds([]);
     setFormData({
-      name: "", gender: type === "mother" ? "female" : "male", birthDate: "", deathDate: "", isAlive: true, img: DEFAULT_IMG, contactNo: "",
-      relativeId: selectedNode.id, relationType: type, mid: null, fid: null, pids: []
+      name: "",
+      gender: type === "mother" ? "female" : "male",
+      birthDate: "",
+      deathDate: "",
+      isAlive: true,
+      img: DEFAULT_IMG,
+      contactNo: "",
+      relativeId: selectedNode.id,
+      relationType: type,
+      mid: null,
+      fid: null,
+      pids: []
     });
     setSidebarMode("add-form");
   };
@@ -296,46 +319,52 @@ const TreeEditor = () => {
   }, [isDarkMode]);
 
   useEffect(() => {
-    if (divRef.current && nodes.length > 0) {
-      nodesRef.current = nodes;
+    if (divRef.current) {
 
-      const enriched = nodes.map((n) => ({
-        ...n,
-        ageDisplay: n.isAlive && n.birthDate
-          ? `${calculateAge(n.birthDate)} yrs`
-          : n.birthDate ? `Born ${formatDate(n.birthDate)}` : "",
-      }));
+      if (nodes.length > 0) {
+        nodesRef.current = nodes;
 
-      divRef.current.innerHTML = '';
+        const enriched = nodes.map((n) => ({
+          ...n,
+          ageDisplay: n.isAlive && n.birthDate
+            ? `${calculateAge(n.birthDate)} yrs`
+            : n.birthDate ? `Born ${formatDate(n.birthDate)}` : "",
+        }));
 
-      treeRef.current = new FamilyTree(divRef.current, {
-        template: currentTemplate,
-        mode: isDarkMode ? 'dark' : 'light',
-        enableSearch: false,
-        toolbar: false,
-        mouseScrool: FamilyTree.action.zoom,   // Enable zoom
-        scaleInitial: FamilyTree.match.boundary,  // Auto-fit tree
-        scaleMin: 0.3,                         // Minimum zoom
-        scaleMax: 2.5,                         // Maximum zoom
-        enableDrag: true,       // Allow dragging/panning
-        editForm: { readOnly: true },
-        nodeMenu: null,
-        nodeBinding: {
-          field_0: "name",
-          field_1: "ageDisplay",
-          img_0: "img",
-        },
-        nodes: enriched
-      });
+        divRef.current.innerHTML = '';
 
-      treeRef.current.on("click", (sender, args) => {
-        const nodeId = args?.node?.id;
-        if (!nodeId) return false;
+        treeRef.current = new FamilyTree(divRef.current, {
+          template: currentTemplate,
+          mode: isDarkMode ? 'dark' : 'light',
+          enableSearch: false,
+          toolbar: false,
+          mouseScrool: FamilyTree.action.zoom,   // Enable zoom
+          scaleInitial: FamilyTree.match.boundary,  // Auto-fit tree
+          scaleMin: 0.3,                         // Minimum zoom
+          scaleMax: 2.5,                         // Maximum zoom
+          enableDrag: true,       // Allow dragging/panning
+          editForm: { readOnly: true },
+          nodeMenu: null,
+          nodeBinding: {
+            field_0: "name",
+            field_1: "ageDisplay",
+            img_0: "img",
+          },
+          nodes: enriched
+        });
 
-        const full = nodesRef.current.find(n => n.id === nodeId);
-        if (full) openSidebar(full);
-        return false;
-      });
+        treeRef.current.on("click", (sender, args) => {
+          const nodeId = args?.node?.id;
+          if (!nodeId) return false;
+
+          const full = nodesRef.current.find(n => n.id === nodeId);
+          if (full) openSidebar(full);
+          return false;
+        });
+      } else {
+        divRef.current.innerHTML = '';
+        treeRef.current = null;
+      }
     }
   }, [nodes, currentTemplate, isDarkMode]);
 
