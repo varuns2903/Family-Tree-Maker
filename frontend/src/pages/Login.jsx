@@ -15,11 +15,12 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const { data } = await api.post('/auth/login', formData);
+      const { data } = await api.post('/auth/login', formData);      
       // Save user to local storage
+      localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data));
       toast.success(`Welcome back, ${data.email}!`);
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } catch (error) {
       toast.error(error.response?.data?.message || 'Login failed');
     }

@@ -26,6 +26,7 @@ const Register = () => {
       const { data } = await api.post('/auth/register', formData);
 
       // 2. Save token (Auto-login)
+      localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data));
       
       // 3. Success Feedback

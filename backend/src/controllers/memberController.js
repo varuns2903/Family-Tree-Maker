@@ -5,7 +5,9 @@ const Member = require('../models/Member');
 // @access  Private
 const getMembers = async (req, res) => {
   try {
-    const { treeId } = req.params;
+    console.log(req.params);
+    
+    const { treeId } = req.params;    
     const members = await Member.find({ treeId });
 
     const nodes = members.map((m) => ({
@@ -21,9 +23,12 @@ const getMembers = async (req, res) => {
       isAlive: m.isAlive,
       contactNo: m.contactNo,
       ...Object.fromEntries(m.data || new Map()) // Convert Map to object
-    }));
+    }));    
 
-    res.status(200).json(nodes);
+    res.status(200).json({
+      role: req.treeRole || 'owner', 
+      members: nodes
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -4,55 +4,57 @@ import FamilyTree from '@balkangraph/familytree.js';
 import { FileUploaderRegular } from '@uploadcare/react-uploader';
 import '@uploadcare/react-uploader/core.css';
 import api from '../api/axios';
+import ShareModal from '../components/ShareModal';
 import toast from 'react-hot-toast';
-import { ArrowLeft, PieChart, Palette, X, Moon, Sun } from 'lucide-react';
-import { getInitialTheme, toggleTheme } from '../utils/theme'; // ✅ theme utils
+import { ArrowLeft, PieChart, Palette, X, Moon, Sun, Lock, Share2, Key, TreePine } from 'lucide-react'; // Added TreePine
+import { getInitialTheme, toggleTheme } from '../utils/theme';
 
 const TreeEditor = () => {
   const divRef = useRef(null);
   const treeRef = useRef(null);
-  const nodesRef = useRef([]); // Prevents stale closures in event listeners
+  const nodesRef = useRef([]);
   const { treeId } = useParams();
   const navigate = useNavigate();
 
   // --- GLOBAL STATE ---
   const [nodes, setNodes] = useState([]);
+  const [treeName, setTreeName] = useState("Family Tree"); // ✅ New State for Name
+  const [userRole, setUserRole] = useState('viewer'); 
+  const [showShareModal, setShowShareModal] = useState(false);
 
   // --- UI STATE ---
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarMode, setSidebarMode] = useState("view"); // view | edit | add-select | select-other-parent | add-form
+  const [sidebarMode, setSidebarMode] = useState("view");
   const [selectedNode, setSelectedNode] = useState(null);
 
   // --- ADD/EDIT CONTEXT STATE ---
   const [relativeType, setRelativeType] = useState("");
-  const [linkChildrenIds, setLinkChildrenIds] = useState([]); // For linking step-children
+  const [linkChildrenIds, setLinkChildrenIds] = useState([]);
 
   // --- THEME & STATS STATE ---
-  const [isDarkMode, setIsDarkMode] = useState(getInitialTheme); // ✅ synced with Dashboard + localStorage
+  const [isDarkMode, setIsDarkMode] = useState(getInitialTheme);
   const [currentTemplate, setCurrentTemplate] = useState("hugo");
   const [showStats, setShowStats] = useState(false);
   const [stats, setStats] = useState({ total: 0, male: 0, female: 0, living: 0 });
 
   // --- FORM DATA STATE ---
   const [formData, setFormData] = useState({
-    name: "",
-    gender: "male",
-    birthDate: "",
-    deathDate: "",
-    isAlive: true,
-    img: "",
-    contactNo: "",
-    mid: null,
-    fid: null,
-    pids: [],
-    relativeId: null,
-    relationType: null
+    name: "", gender: "male", birthDate: "", deathDate: "", isAlive: true,
+    img: "", contactNo: "", mid: null, fid: null, pids: [],
+    relativeId: null, relationType: null
   });
 
   const DEFAULT_IMG = "https://ucarecdn.com/db931dbd-59c5-4b4d-a86d-79d9791262ce/user.png";
 
   // ==================================================================================
-  // 1. HELPER FUNCTIONS
+  // 1. PERMISSION HELPERS
+  // ==================================================================================
+  const canEdit = ['owner', 'editor'].includes(userRole);
+  const canDelete = userRole === 'owner';
+  const isReadOnly = userRole === 'viewer'; 
+
+  // ==================================================================================
+  // 2. HELPER FUNCTIONS
   // ==================================================================================
 
   const formatDate = (dateStr) => {
@@ -67,10 +69,9 @@ const TreeEditor = () => {
   const calculateAge = (dob) => {
     if (!dob) return "";
     const diff = Date.now() - new Date(dob).getTime();
-    return Math.floor(diff / 31556952000); // Rough estimate
+    return Math.floor(diff / 31556952000);
   };
 
-  // Group relatives for the "View Mode" sidebar list
   const getRelatives = () => {
     if (!selectedNode) return { parents: [], spouses: [], children: [], siblings: [] };
     const { mid, fid, pids = [], id } = selectedNode;
@@ -85,23 +86,20 @@ const TreeEditor = () => {
     return { parents, spouses, children, siblings };
   };
 
-  // Get spouses for the "Select Co-Parent" logic
   const getSpouses = (node) => {
     if (!node || !node.pids) return [];
     return nodes.filter(n => node.pids.includes(n.id));
   };
 
-  // Find children who are missing one parent (for linking step-parents)
   const getSingleParentChildren = () => {
     if (!selectedNode) return [];
     const myChildren = nodes.filter(n => n.mid === selectedNode.id || n.fid === selectedNode.id);
     return myChildren.filter(child => {
-      if (selectedNode.gender === 'male') return !child.mid; // Dad selected, find kids with no Mom
-      else return !child.fid; // Mom selected, find kids with no Dad
+      if (selectedNode.gender === 'male') return !child.mid;
+      else return !child.fid;
     });
   };
 
-  // Calculate Dashboard Stats
   const calculateStats = () => {
     const total = nodes.length;
     const male = nodes.filter(n => n.gender === 'male').length;
@@ -120,15 +118,50 @@ const TreeEditor = () => {
   };
 
   // ==================================================================================
-  // 2. API ACTIONS
+  // 3. API ACTIONS
   // ==================================================================================
 
-  const loadMembers = async () => {
+  const loadTreeData = async () => {
     try {
-      const { data } = await api.get(`/trees/${treeId}/members`);
-      setNodes(data);
+      // 1. Get Members & Role
+      const membersRes = await api.get(`/trees/${treeId}/members`);
+      
+      if (membersRes.data.role) {
+        setUserRole(membersRes.data.role);
+        setNodes(membersRes.data.members);
+      } else {
+        setUserRole('owner');
+        setNodes(membersRes.data);
+      }
+
+      // 2. ✅ Get Tree Details (Name)
+      // Note: If backend forbids non-owners from GET /trees/:id, this might fail.
+      // Ideally, the 'getMembers' endpoint should return the tree name too.
+      try {
+        const treeRes = await api.get(`/trees/${treeId}`);
+        setTreeName(treeRes.data.name);
+      } catch (err) {
+        // Fail silently if user is viewer and backend blocks details
+        console.log("Could not fetch tree metadata (likely permission issue)");
+      }
+
     } catch {
-      toast.error("Failed to load family members");
+      toast.error("Failed to load tree data");
+    }
+  };
+
+  const requestAccess = async () => {
+    try {
+      const userStr = localStorage.getItem('user');
+      if(!userStr) {
+        toast.error("User session not found. Please relogin.");
+        return;
+      }
+      const user = JSON.parse(userStr);
+      await api.put(`/trees/${treeId}/role`, { userId: user.id, action: 'request' });
+      toast.success("Request sent to owner");
+    } catch (e) { 
+      toast.error("Failed to send request"); 
     }
   };
 
@@ -142,15 +175,15 @@ const TreeEditor = () => {
         isAlive: formData.isAlive,
         img: formData.img,
         contactNo: formData.contactNo,
-        mid: formData.mid, // Preserve parents
-        fid: formData.fid, // Preserve parents
-        pids: formData.pids // Preserve partners
+        mid: formData.mid,
+        fid: formData.fid,
+        pids: formData.pids
       };
 
       await api.put(`/trees/${treeId}/members/${selectedNode.id}`, payload);
       toast.success("Updated");
       setSidebarOpen(false);
-      loadMembers();
+      loadTreeData(); // Refresh
     } catch {
       toast.error("Update failed");
     }
@@ -160,7 +193,6 @@ const TreeEditor = () => {
     try {
       const payload = {
         ...formData,
-        // Fallback logic: Use explicit parent IDs if set, otherwise assume context relative
         relativeId: formData.relativeId || (formData.fid || formData.mid ? null : selectedNode?.id) || null,
         relationType: formData.relationType || relativeType || null,
         linkChildrenIds: linkChildrenIds
@@ -169,7 +201,7 @@ const TreeEditor = () => {
       await api.post(`/trees/${treeId}/members`, payload);
       toast.success("Added Successfully");
       setSidebarOpen(false);
-      loadMembers();
+      loadTreeData(); // Refresh
     } catch (error) {
       console.error(error);
       toast.error("Failed to add member");
@@ -182,21 +214,20 @@ const TreeEditor = () => {
       await api.delete(`/trees/${treeId}/members/${selectedNode.id}`);
       toast.success("Removed");
       setSidebarOpen(false);
-      loadMembers();
+      loadTreeData(); // Refresh
     } catch {
       toast.error("Delete failed");
     }
   };
 
   // ==================================================================================
-  // 3. UI HANDLERS (SIDEBAR NAVIGATION)
+  // 4. UI HANDLERS
   // ==================================================================================
 
   const openSidebar = (node) => {
     if (!node) return;
     setSelectedNode(node);
 
-    // Populate form, ensuring we don't wipe existing relationships
     setFormData({
       name: node.name,
       gender: node.gender,
@@ -211,14 +242,14 @@ const TreeEditor = () => {
       relativeId: null,
       relationType: null,
     });
-    setSidebarMode("view");
+    setSidebarMode(isReadOnly ? "edit" : "view");
     setSidebarOpen(true);
   };
 
   const handleAddChildClick = () => {
     const spouses = getSpouses(selectedNode);
-    if (spouses.length === 0) openAddChildForm(null); // Single
-    else setSidebarMode("select-other-parent"); // Manual
+    if (spouses.length === 0) openAddChildForm(null);
+    else setSidebarMode("select-other-parent");
   };
 
   const openAddChildForm = (otherParentId) => {
@@ -252,21 +283,18 @@ const TreeEditor = () => {
   };
 
   // ==================================================================================
-  // 4. EFFECTS
+  // 5. EFFECTS
   // ==================================================================================
 
-  // Initial Load
   useEffect(() => {
-    loadMembers();
+    loadTreeData();
   }, [treeId]);
 
-  // ✅ Sync `.dark` class on <html>, same as Dashboard
   useEffect(() => {
     if (isDarkMode) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
   }, [isDarkMode]);
 
-  // Chart Rendering Logic
   useEffect(() => {
     if (divRef.current && nodes.length > 0) {
       nodesRef.current = nodes;
@@ -278,17 +306,15 @@ const TreeEditor = () => {
           : n.birthDate ? `Born ${formatDate(n.birthDate)}` : "",
       }));
 
-      // Wipe old chart
       divRef.current.innerHTML = '';
 
-      // Initialize Balkan Graph
       treeRef.current = new FamilyTree(divRef.current, {
         template: currentTemplate,
         mode: isDarkMode ? 'dark' : 'light',
         enableSearch: false,
         toolbar: false,
         mouseScrool: FamilyTree.none,
-        editForm: { readOnly: true }, // Prevent default menu crash
+        editForm: { readOnly: true },
         nodeMenu: null,
         nodeBinding: {
           field_0: "name",
@@ -298,15 +324,13 @@ const TreeEditor = () => {
         nodes: enriched
       });
 
-      // Handle Node Clicks
       treeRef.current.on("click", (sender, args) => {
         const nodeId = args?.node?.id;
         if (!nodeId) return false;
 
         const full = nodesRef.current.find(n => n.id === nodeId);
         if (full) openSidebar(full);
-
-        return false; // Stop library default behavior
+        return false;
       });
     }
   }, [nodes, currentTemplate, isDarkMode]);
@@ -314,7 +338,7 @@ const TreeEditor = () => {
   const { parents, spouses, children, siblings } = getRelatives();
 
   // ==================================================================================
-  // 5. RENDER
+  // 6. RENDER
   // ==================================================================================
 
   return (
@@ -324,15 +348,31 @@ const TreeEditor = () => {
       {/* TOP TOOLBAR */}
       <div className="absolute top-4 left-4 right-4 z-30 flex justify-between items-center pointer-events-none">
 
-        {/* Back Button */}
-        <button onClick={() => navigate('/dashboard')}
-          className={`pointer-events-auto flex items-center gap-2 px-4 py-2 rounded-lg shadow-md transition
-          ${isDarkMode ? 'bg-slate-800 text-white hover:bg-slate-700' : 'bg-white/90 text-gray-700 hover:bg-gray-200'}`}>
-          <ArrowLeft size={18} /> <span className="hidden sm:inline">Back</span>
-        </button>
+        {/* Back Button & Permissions */}
+        <div className="pointer-events-auto flex items-center gap-3">
+          <button onClick={() => navigate('/dashboard')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg shadow-md transition
+            ${isDarkMode ? 'bg-slate-800 text-white hover:bg-slate-700' : 'bg-white/90 text-gray-700 hover:bg-gray-200'}`}>
+            <ArrowLeft size={18} /> <span className="hidden sm:inline">Back</span>
+          </button>
 
+          <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm
+            ${userRole === 'owner' ? 'bg-amber-100 text-amber-800 border border-amber-300' :
+              userRole === 'editor' ? 'bg-blue-100 text-blue-800 border border-blue-300' :
+                'bg-gray-200 text-gray-600 border border-gray-300'}`}>
+            {userRole === 'viewer' && <Lock size={12} />} {userRole}
+          </div>
+        </div>
+
+        {/* ✅ CENTER TREE NAME BADGE */}
+        <div className={`absolute left-1/2 -translate-x-1/2 pointer-events-auto hidden md:flex items-center gap-2 px-6 py-2 rounded-xl shadow-lg border backdrop-blur-md
+          ${isDarkMode ? 'bg-slate-900/80 border-slate-700 text-gray-100' : 'bg-white/80 border-gray-200 text-gray-800'}`}>
+           <TreePine size={18} className="text-green-500" />
+           <span className="font-bold text-lg max-w-[200px] truncate">{treeName}</span>
+        </div>
+
+        {/* Right Actions */}
         <div className="pointer-events-auto flex gap-3">
-          {/* Template Dropdown */}
           <div className="relative group">
             <div className={`flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition shadow-md
             ${isDarkMode ? 'bg-slate-800 text-gray-200 hover:bg-slate-700' : 'bg-white/90 text-gray-700 hover:bg-gray-200'}`}>
@@ -354,7 +394,6 @@ const TreeEditor = () => {
             </div>
           </div>
 
-          {/* Theme Toggle – ✅ now uses shared toggleTheme */}
           <button
             onClick={() => toggleTheme(isDarkMode, setIsDarkMode)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition shadow-md
@@ -362,7 +401,14 @@ const TreeEditor = () => {
             {isDarkMode ? <Moon size={18} /> : <Sun size={18} className="text-orange-500" />}
           </button>
 
-          {/* Stats Button */}
+          <button onClick={() => setShowShareModal(true)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition shadow-md
+            ${isDarkMode ? 'bg-slate-800 text-gray-200 hover:bg-slate-700 hover:text-blue-400'
+                : 'bg-white/90 text-gray-700 hover:bg-gray-200 hover:text-blue-600'}`}>
+            <Share2 size={18} />
+            <span className="hidden sm:inline font-medium">Share</span>
+          </button>
+
           <button onClick={calculateStats}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition shadow-md
             ${isDarkMode ? 'bg-slate-800 text-gray-200 hover:bg-slate-700 hover:text-green-400'
@@ -373,13 +419,11 @@ const TreeEditor = () => {
         </div>
       </div>
 
-      {/* CHART DIV */}
       <div
         ref={divRef}
         className={`flex-1 w-full h-full ${isDarkMode ? 'bg-[#1b1b1b]' : 'bg-gray-50'}`}
       />
 
-      {/* SIDEBAR */}
       {sidebarOpen && (
         <div className="absolute inset-0 z-50 flex">
           <div
@@ -399,7 +443,6 @@ const TreeEditor = () => {
               ✕ Close
             </button>
 
-            {/* --- VIEW MODE --- */}
             {sidebarMode === "view" && selectedNode && (
               <div>
                 <img src={selectedNode.img || DEFAULT_IMG}
@@ -460,45 +503,104 @@ const TreeEditor = () => {
                 </div>
 
                 <div className="mt-4 space-y-2">
-                  <button className={`w-full p-2 rounded transition font-medium ${isDarkMode ? 'bg-blue-700 hover:bg-blue-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`} onClick={() => setSidebarMode("edit")}>Edit Profile</button>
-                  <button className={`w-full p-2 rounded transition font-medium ${isDarkMode ? 'bg-green-700 hover:bg-green-600 text-white' : 'bg-green-600 hover:bg-green-700 text-white'}`} onClick={() => setSidebarMode("add-select")}>Add Relative</button>
-                  <button className={`w-full p-2 rounded transition font-medium border ${isDarkMode ? 'border-red-700 text-red-400 hover:bg-red-900/30' : 'border-red-300 text-red-700 hover:bg-red-50'}`} onClick={removeMember}>Remove Member</button>
+                  {canEdit && (
+                    <button className={`w-full p-2 rounded transition font-medium ${isDarkMode ? 'bg-blue-700 hover:bg-blue-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`} onClick={() => setSidebarMode("edit")}>
+                      Edit Profile
+                    </button>
+                  )}
+                  {canEdit && (
+                    <button className={`w-full p-2 rounded transition font-medium ${isDarkMode ? 'bg-green-700 hover:bg-green-600 text-white' : 'bg-green-600 hover:bg-green-700 text-white'}`} onClick={() => setSidebarMode("add-select")}>
+                      Add Relative
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button className={`w-full p-2 rounded transition font-medium border ${isDarkMode ? 'border-red-700 text-red-400 hover:bg-red-900/30' : 'border-red-300 text-red-700 hover:bg-red-50'}`} onClick={removeMember}>
+                      Remove Member
+                    </button>
+                  )}
+                  {!canEdit && (
+                    <div className={`text-center text-xs p-2 italic opacity-60 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      View only mode. <button onClick={requestAccess} className="underline text-blue-500">Request Edit Access</button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* --- EDIT MODE --- */}
             {sidebarMode === "edit" && (
               <div className="space-y-4">
                 <h3 className="font-bold text-lg mb-3">Edit Member</h3>
-                <input className={`border p-2 w-full rounded ${isDarkMode ? 'bg-slate-800 border-slate-700' : ''}`} placeholder="Name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
-                <select className={`border p-2 w-full rounded ${isDarkMode ? 'bg-slate-800 border-slate-700' : ''}`} value={formData.gender} onChange={(e) => setFormData({ ...formData, gender: e.target.value })}>
+
+                {isReadOnly && (
+                  <div className={`p-3 rounded text-sm flex justify-between items-center ${isDarkMode ? 'bg-orange-900/30 text-orange-200' : 'bg-orange-100 text-orange-800'}`}>
+                    <span className="flex items-center gap-2"><Lock size={14} /> View Only Mode</span>
+                    <button onClick={requestAccess} className="underline font-bold hover:opacity-80">Request Edit</button>
+                  </div>
+                )}
+
+                <input
+                  disabled={isReadOnly}
+                  className={`border p-2 w-full rounded ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-slate-800 border-slate-700' : ''}`}
+                  placeholder="Name" value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
+                
+                <select
+                  disabled={isReadOnly}
+                  className={`border p-2 w-full rounded ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-slate-800 border-slate-700' : ''}`}
+                  value={formData.gender}
+                  onChange={(e) => setFormData({ ...formData, gender: e.target.value })}>
                   <option value="male">Male</option><option value="female">Female</option><option value="other">Other</option>
                 </select>
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={formData.isAlive} onChange={(e) => setFormData({ ...formData, isAlive: e.target.checked, deathDate: e.target.checked ? "" : formData.deathDate })} /> Is Alive
-                </label>
-                <input type="date" className={`border p-2 w-full rounded ${isDarkMode ? 'bg-slate-800 border-slate-700' : ''}`} value={formData.birthDate} onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })} />
-                {!formData.isAlive && (
-                  <input type="date" className={`border p-2 w-full rounded ${isDarkMode ? 'bg-slate-800 border-slate-700' : ''}`} value={formData.deathDate} onChange={(e) => setFormData({ ...formData, deathDate: e.target.value })} />
-                )}
-                <input className={`border p-2 w-full rounded ${isDarkMode ? 'bg-slate-800 border-slate-700' : ''}`} placeholder="Phone" value={formData.contactNo} onChange={(e) => setFormData({ ...formData, contactNo: e.target.value })} />
 
-                <div className={`text-center p-4 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-gray-50'}`}>
-                  <div className="flex justify-center">
-                    <FileUploaderRegular pubkey="8adc52d0c4bb04d5e668" classNameUploader="uc-light uc-purple" sourceList="local, camera, facebook" onFileUploadSuccess={(fileInfo) => { setFormData({ ...formData, img: fileInfo.cdnUrl }); toast.success("Image uploaded"); }} />
+                <label className={`flex items-center gap-2 text-sm ${isReadOnly ? 'opacity-50' : ''}`}>
+                  <input type="checkbox" disabled={isReadOnly} checked={formData.isAlive} onChange={(e) => setFormData({ ...formData, isAlive: e.target.checked, deathDate: e.target.checked ? "" : formData.deathDate })} /> Is Alive
+                </label>
+
+                <input
+                  type="date"
+                  disabled={isReadOnly}
+                  className={`border p-2 w-full rounded ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-slate-800 border-slate-700' : ''}`}
+                  value={formData.birthDate}
+                  onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                />
+
+                {!formData.isAlive && (
+                  <input
+                    type="date"
+                    disabled={isReadOnly}
+                    className={`border p-2 w-full rounded ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-slate-800 border-slate-700' : ''}`}
+                    value={formData.deathDate}
+                    onChange={(e) => setFormData({ ...formData, deathDate: e.target.value })}
+                  />
+                )}
+                
+                <input
+                  disabled={isReadOnly}
+                  className={`border p-2 w-full rounded ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-slate-800 border-slate-700' : ''}`}
+                  placeholder="Phone" value={formData.contactNo}
+                  onChange={(e) => setFormData({ ...formData, contactNo: e.target.value })}
+                />
+
+                {!isReadOnly && (
+                  <div className={`text-center p-4 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-gray-50'}`}>
+                    <div className="flex justify-center">
+                      <FileUploaderRegular pubkey="8adc52d0c4bb04d5e668" classNameUploader="uc-light uc-purple" sourceList="local, camera, facebook" onFileUploadSuccess={(fileInfo) => { setFormData({ ...formData, img: fileInfo.cdnUrl }); toast.success("Image uploaded"); }} />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="flex gap-2 pt-4">
                   <button className={`flex-1 p-2 rounded transition font-medium ${isDarkMode ? 'bg-slate-700 hover:bg-slate-600 text-gray-200' : 'bg-gray-300 hover:bg-gray-200 text-black'}`} onClick={() => setSidebarMode("view")}>Cancel</button>
-                  <button className={`flex-1 p-2 rounded transition font-medium ${isDarkMode ? 'bg-blue-700 hover:bg-blue-600 text:white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`} onClick={saveEdit}>Save</button>
+                  
+                  {!isReadOnly && (
+                    <button className={`flex-1 p-2 rounded transition font-medium ${isDarkMode ? 'bg-blue-700 hover:bg-blue-600 text:white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`} onClick={saveEdit}>Save</button>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* --- ADD SELECT MODE --- */}
-            {sidebarMode === "add-select" && (
+            {sidebarMode === "add-select" && canEdit && (
               <div className="space-y-3">
                 <h3 className={`font-bold text-lg mb-4 ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>What relationship?</h3>
                 <button className={`w-full p-3 border rounded text-left flex items-center justify-between group transition ${isDarkMode ? 'bg-blue-900/30 border-blue-800 hover:bg-blue-900/50 text-blue-100' : 'bg-blue-50 border-blue-200 hover:bg-blue-100 text-blue-900'}`} onClick={handleAddChildClick}>
@@ -513,8 +615,7 @@ const TreeEditor = () => {
               </div>
             )}
 
-            {/* --- SELECT OTHER PARENT MODE --- */}
-            {sidebarMode === "select-other-parent" && (
+            {sidebarMode === "select-other-parent" && canEdit && (
               <div className="space-y-3">
                 <h3 className={`font-bold text-lg ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>Select Co-Parent</h3>
                 {getSpouses(selectedNode).map(spouse => (
@@ -527,8 +628,7 @@ const TreeEditor = () => {
               </div>
             )}
 
-            {/* --- ADD FORM MODE --- */}
-            {sidebarMode === "add-form" && (
+            {sidebarMode === "add-form" && canEdit && (
               <div className="space-y-4">
                 <h3 className={`font-bold text-lg capitalize ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>Add {relativeType || "Member"}</h3>
                 {formData.mid && formData.fid && (<div className={`text-xs p-2 rounded border mb-2 ${isDarkMode ? 'bg-blue-900/30 text-blue-200 border-blue-800' : 'bg-blue-50 text-blue-700 border-blue-100'}`}>Adding child to <b>{selectedNode.name}</b> and partner.</div>)}
@@ -559,30 +659,31 @@ const TreeEditor = () => {
         </div>
       )}
 
-      {/* STATS MODAL */}
-      {showStats && (
-        <div className={`absolute inset-0 z-50 flex items-center justify-center backdrop-blur-sm ${isDarkMode ? 'bg-black/60' : 'bg-black/40'}`} onClick={() => setShowStats(false)}>
-          <div className={`p-8 rounded-2xl w-full max-w-md shadow-2xl transition transform scale-100 ${isDarkMode ? 'bg-slate-900 text-gray-200' : 'bg-white text-gray-800'}`} onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-6"><h2 className="text-2xl font-bold">Statistics</h2><button onClick={() => setShowStats(false)} className={`hover:text-red-500 transition ${isDarkMode ? 'text-gray-400' : 'text-gray-400'}`}><X size={24} /></button></div>
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className={`p-4 rounded-xl text-center ${isDarkMode ? 'bg-blue-900' : 'bg-blue-50'}`}><div className="text-3xl font-bold text-blue-500">{stats.total}</div><div className="text-xs uppercase tracking-wide font-bold text-blue-400">Members</div></div>
-              <div className={`p-4 rounded-xl text-center ${isDarkMode ? 'bg-green-900' : 'bg-green-50'}`}><div className="text-3xl font-bold text-green-500">{stats.living}</div><div className="text-xs uppercase tracking-wide font-bold text-green-400">Living</div></div>
-            </div>
-            <div className="space-y-5">
-              <div><div className="flex justify-between text-sm opacity-80 mb-1"><span>Gender Split</span><span>{stats.male}M / {stats.female}F</span></div><div className={`w-full rounded-full h-2.5 overflow-hidden flex ${isDarkMode ? 'bg-gray-700' : 'bg-gray-200'}`}><div className="h-2.5 bg-blue-500" style={{ width: `${stats.total ? (stats.male / stats.total) * 100 : 0}%` }}></div><div className="h-2.5 bg-pink-500" style={{ width: `${stats.total ? (stats.female / stats.total) * 100 : 0}%` }}></div></div></div>
-              {stats.oldestName && (<div className={`p-4 rounded-xl flex items-center gap-3 border ${isDarkMode ? 'bg-yellow-900/30 border-yellow-900 text-yellow-300' : 'bg-amber-50 border-amber-100 text-amber-700'}`}><div className="w-10 h-10 rounded-full flex items-center justify-center font-bold bg-yellow-200 text-yellow-700 dark:bg-yellow-700 dark:text-yellow-300">{stats.oldestAge}</div><div><div className="text-xs uppercase font-bold opacity-75">Oldest Living Relative</div><div className="font-bold">{stats.oldestName}</div></div></div>)}
-            </div>
-          </div>
-        </div>
-      )}
+      {showShareModal && <ShareModal treeId={treeId} onClose={() => setShowShareModal(false)} />}
 
-      {/* EMPTY STATE */}
+      {/* --- ✅ UPDATED EMPTY STATE --- */}
       {nodes.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-          <button className="pointer-events-auto bg-blue-600 text-white px-8 py-4 rounded-full shadow-2xl text-lg font-bold hover:bg-blue-700 transition animate-bounce"
-            onClick={() => { setSelectedNode({ id: null }); setSidebarMode("add-form"); setFormData({ name: "Root Ancestor", gender: "male", birthDate: "", isAlive: true, img: DEFAULT_IMG, contactNo: "", fid: null, mid: null, pids: [], relativeId: null, relationType: null }); setSidebarOpen(true); }}>
-            + Start Family Tree
-          </button>
+          {canEdit ? (
+            <button className="pointer-events-auto bg-blue-600 text-white px-8 py-4 rounded-full shadow-2xl text-lg font-bold hover:bg-blue-700 transition animate-bounce"
+              onClick={() => { setSelectedNode({ id: null }); setSidebarMode("add-form"); setFormData({ name: "Root Ancestor", gender: "male", birthDate: "", isAlive: true, img: DEFAULT_IMG, contactNo: "", fid: null, mid: null, pids: [], relativeId: null, relationType: null }); setSidebarOpen(true); }}>
+              + Start Family Tree
+            </button>
+          ) : (
+            <div className={`p-6 rounded-xl text-center pointer-events-auto shadow-lg border ${isDarkMode ? 'bg-slate-800 border-slate-700 text-gray-300' : 'bg-white border-gray-200 text-gray-600'}`}>
+              <Lock className="mx-auto mb-2 opacity-50" size={32} />
+              <p className="font-medium text-lg">This family tree is empty.</p>
+              <p className="text-sm opacity-75 mb-4">You do not have permission to add the first member.</p>
+              
+              {/* ✅ ADDED REQUEST BUTTON FOR VIEWERS */}
+              <button 
+                onClick={requestAccess}
+                className={`flex items-center gap-2 mx-auto px-4 py-2 rounded-lg font-medium transition shadow-md
+                ${isDarkMode ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
+                <Key size={16} /> Request Edit Access
+              </button>
+            </div>
+          )}
         </div>
       )}
 

@@ -63,7 +63,7 @@ const loginUser = async (req, res) => {
     const { email, password } = req.body;
 
     // Check for user email
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email });    
 
     // Check password
     if (user && (await bcrypt.compare(password, user.passwordHash))) {
