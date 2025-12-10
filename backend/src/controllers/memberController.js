@@ -4,9 +4,7 @@ const Member = require('../models/Member');
 // @route   GET /api/trees/:treeId/members
 // @access  Private
 const getMembers = async (req, res) => {
-  try {
-    console.log(req.params);
-    
+  try {    
     const { treeId } = req.params;    
     const members = await Member.find({ treeId });
 
