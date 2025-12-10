@@ -19,7 +19,7 @@ const TreeEditor = () => {
   // --- GLOBAL STATE ---
   const [nodes, setNodes] = useState([]);
   const [treeName, setTreeName] = useState("Family Tree"); // ✅ New State for Name
-  const [userRole, setUserRole] = useState('viewer'); 
+  const [userRole, setUserRole] = useState('viewer');
   const [showShareModal, setShowShareModal] = useState(false);
 
   // --- UI STATE ---
@@ -51,7 +51,7 @@ const TreeEditor = () => {
   // ==================================================================================
   const canEdit = ['owner', 'editor'].includes(userRole);
   const canDelete = userRole === 'owner';
-  const isReadOnly = userRole === 'viewer'; 
+  const isReadOnly = userRole === 'viewer';
 
   // ==================================================================================
   // 2. HELPER FUNCTIONS
@@ -125,7 +125,7 @@ const TreeEditor = () => {
     try {
       // 1. Get Members & Role
       const membersRes = await api.get(`/trees/${treeId}/members`);
-      
+
       if (membersRes.data.role) {
         setUserRole(membersRes.data.role);
         setNodes(membersRes.data.members);
@@ -153,15 +153,15 @@ const TreeEditor = () => {
   const requestAccess = async () => {
     try {
       const userStr = localStorage.getItem('user');
-      if(!userStr) {
+      if (!userStr) {
         toast.error("User session not found. Please relogin.");
         return;
       }
       const user = JSON.parse(userStr);
       await api.put(`/trees/${treeId}/role`, { userId: user.id, action: 'request' });
       toast.success("Request sent to owner");
-    } catch (e) { 
-      toast.error("Failed to send request"); 
+    } catch (e) {
+      toast.error("Failed to send request");
     }
   };
 
@@ -313,7 +313,11 @@ const TreeEditor = () => {
         mode: isDarkMode ? 'dark' : 'light',
         enableSearch: false,
         toolbar: false,
-        mouseScrool: FamilyTree.none,
+        mouseScrool: FamilyTree.action.zoom,   // Enable zoom
+        scaleInitial: FamilyTree.match.boundary,  // Auto-fit tree
+        scaleMin: 0.3,                         // Minimum zoom
+        scaleMax: 2.5,                         // Maximum zoom
+        enableDrag: true,       // Allow dragging/panning
         editForm: { readOnly: true },
         nodeMenu: null,
         nodeBinding: {
@@ -367,8 +371,8 @@ const TreeEditor = () => {
         {/* ✅ CENTER TREE NAME BADGE */}
         <div className={`absolute left-1/2 -translate-x-1/2 pointer-events-auto hidden md:flex items-center gap-2 px-6 py-2 rounded-xl shadow-lg border backdrop-blur-md
           ${isDarkMode ? 'bg-slate-900/80 border-slate-700 text-gray-100' : 'bg-white/80 border-gray-200 text-gray-800'}`}>
-           <TreePine size={18} className="text-green-500" />
-           <span className="font-bold text-lg max-w-[200px] truncate">{treeName}</span>
+          <TreePine size={18} className="text-green-500" />
+          <span className="font-bold text-lg max-w-[200px] truncate">{treeName}</span>
         </div>
 
         {/* Right Actions */}
@@ -544,7 +548,7 @@ const TreeEditor = () => {
                   placeholder="Name" value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
-                
+
                 <select
                   disabled={isReadOnly}
                   className={`border p-2 w-full rounded ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-slate-800 border-slate-700' : ''}`}
@@ -574,7 +578,7 @@ const TreeEditor = () => {
                     onChange={(e) => setFormData({ ...formData, deathDate: e.target.value })}
                   />
                 )}
-                
+
                 <input
                   disabled={isReadOnly}
                   className={`border p-2 w-full rounded ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-slate-800 border-slate-700' : ''}`}
@@ -592,7 +596,7 @@ const TreeEditor = () => {
 
                 <div className="flex gap-2 pt-4">
                   <button className={`flex-1 p-2 rounded transition font-medium ${isDarkMode ? 'bg-slate-700 hover:bg-slate-600 text-gray-200' : 'bg-gray-300 hover:bg-gray-200 text-black'}`} onClick={() => setSidebarMode("view")}>Cancel</button>
-                  
+
                   {!isReadOnly && (
                     <button className={`flex-1 p-2 rounded transition font-medium ${isDarkMode ? 'bg-blue-700 hover:bg-blue-600 text:white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`} onClick={saveEdit}>Save</button>
                   )}
@@ -674,9 +678,9 @@ const TreeEditor = () => {
               <Lock className="mx-auto mb-2 opacity-50" size={32} />
               <p className="font-medium text-lg">This family tree is empty.</p>
               <p className="text-sm opacity-75 mb-4">You do not have permission to add the first member.</p>
-              
+
               {/* ✅ ADDED REQUEST BUTTON FOR VIEWERS */}
-              <button 
+              <button
                 onClick={requestAccess}
                 className={`flex items-center gap-2 mx-auto px-4 py-2 rounded-lg font-medium transition shadow-md
                 ${isDarkMode ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
