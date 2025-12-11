@@ -5,7 +5,6 @@ const {
   addMember,
   updateMember,
   deleteMember,
-  syncMembers
 } = require('../controllers/memberController');
 
 const { protect } = require('../middleware/authMiddleware');
@@ -16,9 +15,6 @@ router.route('/')
   .get(protect, checkAccess('viewer'), getMembers) 
   // checking if user has 'editor' role or higher
   .post(protect, checkAccess('editor'), addMember);
-
-// Sync route: /api/trees/:treeId/members/sync
-router.post('/sync', protect, checkAccess('editor'), syncMembers);
 
 // Individual member operations: /api/trees/:treeId/members/:memberId
 router.route('/:memberId')

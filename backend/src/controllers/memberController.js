@@ -243,63 +243,9 @@ const deleteMember = async (req, res) => {
   }
 };
 
-// @desc    Bulk Sync (Handle Drag & Drop, inline edits from Chart)
-// @route   POST /api/trees/:treeId/members/sync
-const syncMembers = async (req, res) => {
-  try {
-    const { treeId } = req.params;
-    const { addNodesData, updateNodesData, removeNodeId } = req.body;
-
-    // 1. Handle Removals
-    if (removeNodeId) {
-      await Member.findByIdAndDelete(removeNodeId);
-      await Member.updateMany(
-        { pids: removeNodeId },
-        { $pull: { pids: removeNodeId } }
-      );
-    }
-
-    // 2. Handle Updates
-    if (updateNodesData && updateNodesData.length > 0) {
-      const updatePromises = updateNodesData.map(async (node) => {
-        const updatePayload = {
-          name: node.name,
-          mid: node.mid || null,
-          fid: node.fid || null,
-          pids: node.pids || [],
-        };
-        return Member.findByIdAndUpdate(node.id, updatePayload);
-      });
-      await Promise.all(updatePromises);
-    }
-
-    // 3. Handle Additions
-    if (addNodesData && addNodesData.length > 0) {
-      const addPromises = addNodesData.map(async (node) => {
-        return Member.create({
-          treeId,
-          _id: node.id,
-          name: node.name || 'New Member',
-          gender: node.gender || 'male',
-          mid: node.mid || null,
-          fid: node.fid || null,
-          pids: node.pids || []
-        });
-      });
-      await Promise.all(addPromises);
-    }
-
-    res.status(200).json({ message: 'Sync successful' });
-  } catch (error) {
-    console.error("Sync Error:", error);
-    res.status(500).json({ message: error.message });
-  }
-};
-
 module.exports = {
   getMembers,
   addMember,
   updateMember,
-  deleteMember,
-  syncMembers
+  deleteMember
 };
