@@ -268,33 +268,9 @@ const TreeEditor = () => {
 
   const initiateDelete = () => { setDeleteTargetNode(selectedNode); };
 
-  const handleLinkMember = async (targetId) => {
-    try {
-      await api.put(`/trees/${treeId}/members/link`, {
-        memberId: selectedNode.id, relativeId: targetId, relationship: relativeType
-      });
-      toast.success("Members Linked!");
-      setSidebarOpen(false);
-      loadTreeData();
-    } catch (err) { toast.error(err.response?.data?.message || "Failed to link members"); }
-  };
-
   // ==================================================================================
   // 4. UI HANDLERS
   // ==================================================================================
-
-  const getLinkCandidates = () => {
-    return nodes.filter(n => {
-      if (n.id === selectedNode.id) return false;
-      if (!n.name.toLowerCase().includes(searchLinkQuery.toLowerCase())) return false;
-      if (relativeType === 'father' && n.gender !== 'male') return false;
-      if (relativeType === 'mother' && n.gender !== 'female') return false;
-      if (selectedNode.pids && selectedNode.pids.includes(n.id)) return false;
-      if (selectedNode.mid === n.id || selectedNode.fid === n.id) return false;
-      if (n.mid === selectedNode.id || n.fid === selectedNode.id) return false;
-      return true;
-    });
-  };
 
   const openSidebar = (node) => {
     if (!node) return;
@@ -557,9 +533,6 @@ const TreeEditor = () => {
                     <button className={`flex-1 p-4 border rounded-xl text-left flex items-center justify-between group transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700 hover:border-blue-500 hover:bg-slate-750' : 'bg-white border-gray-200 hover:border-blue-400 hover:shadow-md'}`} onClick={handleAddChildClick}>
                       <span className="font-medium">Add Child (New)</span>
                     </button>
-                    <button onClick={() => { setRelativeType("child"); setSearchLinkQuery(""); setSidebarMode("link-search"); }} className={`p-4 border rounded-xl hover:scale-105 transition-all ${isDarkMode ? 'border-slate-700 bg-slate-800 hover:bg-blue-900/30 text-blue-400' : 'border-gray-200 bg-white hover:bg-blue-50 text-blue-600'}`} title="Link existing child">
-                      <LinkIcon size={20} />
-                    </button>
                   </div>
 
                   {/* Spouse, Father, Mother */}
@@ -567,9 +540,6 @@ const TreeEditor = () => {
                     <div key={r} className="flex gap-2">
                       <button className={`flex-1 p-4 border rounded-xl text-left flex items-center justify-between group transition-all capitalize ${isDarkMode ? 'bg-slate-800 border-slate-700 hover:border-blue-500 hover:bg-slate-750' : 'bg-white border-gray-200 hover:border-blue-400 hover:shadow-md'}`} onClick={() => openGenericAddForm(r)}>
                         <span className="font-medium">Add {r}</span>
-                      </button>
-                      <button onClick={() => { setRelativeType(r); setSearchLinkQuery(""); setSidebarMode("link-search"); }} className={`p-4 border rounded-xl hover:scale-105 transition-all ${isDarkMode ? 'border-slate-700 bg-slate-800 hover:bg-blue-900/30 text-blue-400' : 'border-gray-200 bg-white hover:bg-blue-50 text-blue-600'}`} title={`Link existing ${r}`}>
-                        <LinkIcon size={20} />
                       </button>
                     </div>
                   ))}
@@ -580,27 +550,6 @@ const TreeEditor = () => {
                   </button>
 
                   <button className={`w-full p-3 mt-2 rounded-lg font-medium transition-colors ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-200 hover:bg-gray-300'}`} onClick={() => setSidebarMode("view")}>Cancel</button>
-                </div>
-              )}
-
-              {/* LINK SEARCH MODE */}
-              {sidebarMode === "link-search" && (
-                <div className="space-y-5 animate-fade-in">
-                  <h3 className={`font-bold text-xl capitalize`}>Link Existing {relativeType}</h3>
-                  <div className="relative">
-                    <input autoFocus placeholder="Search member name..." value={searchLinkQuery} onChange={(e) => setSearchLinkQuery(e.target.value)} className={`w-full pl-10 pr-4 py-3 rounded-lg outline-none border transition-all focus:ring-2 focus:ring-blue-500 ${isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-gray-50 border-gray-200'}`} />
-                    <Search className="absolute left-3 top-3.5 text-gray-400" size={18} />
-                  </div>
-                  <div className="space-y-2 max-h-[50vh] overflow-y-auto custom-scrollbar pr-1">
-                    {getLinkCandidates().map(candidate => (
-                      <div key={candidate.id} className={`flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-all hover:scale-[1.02] ${isDarkMode ? 'bg-slate-800 border-slate-700 hover:bg-slate-750' : 'bg-white border-gray-200 hover:shadow-md'}`} onClick={() => handleLinkMember(candidate.id)}>
-                        <img src={candidate.img || DEFAULT_IMG} className="w-10 h-10 rounded-full object-cover" />
-                        <div><p className="font-bold text-sm">{candidate.name}</p><p className="text-xs opacity-60">{candidate.birthDate ? `Born: ${new Date(candidate.birthDate).getFullYear()}` : 'No birth date'}</p></div>
-                      </div>
-                    ))}
-                    {getLinkCandidates().length === 0 && (<p className="text-center text-sm opacity-50 py-4 italic">No eligible members found.</p>)}
-                  </div>
-                  <button className={`w-full p-3 rounded-lg font-medium transition-colors ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-200 hover:bg-gray-300'}`} onClick={() => setSidebarMode("add-select")}>Back</button>
                 </div>
               )}
 
