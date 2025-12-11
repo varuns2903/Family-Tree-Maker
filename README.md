@@ -50,7 +50,7 @@ Legacy Builder is a modern, full-stack web application designed to help users cr
 ### 1. Clone the Repository
 ```bash
 git clone https://github.com/varuns2903/Family-Tree-Maker.git
-cd legacy-builder
+cd Family-Tree-Maker
 ```
 
 ### 2. Backend Setup
