@@ -89,8 +89,36 @@ const getMe = async (req, res) => {
   res.status(200).json(req.user);
 };
 
+// @desc    Search for users by name or email
+// @route   GET /api/auth/search?query=text
+// @access  Private
+const searchUsers = async (req, res) => {
+  try {
+    const { query } = req.query;
+    if (!query) return res.status(200).json([]);
+
+    // Regex for partial match, case-insensitive
+    const users = await User.find({
+      $and: [
+        { _id: { $ne: req.user.id } }, // Exclude self
+        {
+          $or: [
+            { name: { $regex: query, $options: 'i' } },
+            { email: { $regex: query, $options: 'i' } }
+          ]
+        }
+      ]
+    }).select('name email _id').limit(5); // Limit results to 5    
+
+    res.status(200).json(users);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
   getMe,
+  searchUsers,
 };

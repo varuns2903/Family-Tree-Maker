@@ -262,6 +262,15 @@ const manageRole = async (req, res) => {
     if (action === 'remove') {
       tree.collaborators = tree.collaborators.filter(c => c.user.toString() !== userId);
     }
+    else if (action === 'add') {
+        // Check if already exists to prevent duplicates
+        const exists = tree.collaborators.find(c => c.user.toString() === userId);
+        if (exists) {
+            return res.status(400).json({ message: "User is already a collaborator" });
+        }
+        // Add new collaborator
+        tree.collaborators.push({ user: userId, role: role || 'viewer', requestedEdit: false });
+    }
     else if (action === 'update') {
       const collab = tree.collaborators.find(c => c.user.toString() === userId);
       if (collab) {

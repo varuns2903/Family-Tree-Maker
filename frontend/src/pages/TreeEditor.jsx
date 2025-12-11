@@ -5,8 +5,9 @@ import { FileUploaderRegular } from '@uploadcare/react-uploader';
 import '@uploadcare/react-uploader/core.css';
 import api from '../api/axios';
 import ShareModal from '../components/ShareModal';
+import StatsModal from '../components/StatsModal'; // ✅ Imported StatsModal
 import toast from 'react-hot-toast';
-import { ArrowLeft, PieChart, Palette, X, Moon, Sun, Lock, Share2, Key, TreePine } from 'lucide-react'; // Added TreePine
+import { ArrowLeft, PieChart, Palette, Moon, Sun, Lock, Share2, Key, TreePine } from 'lucide-react';
 import { getInitialTheme, toggleTheme } from '../utils/theme';
 
 const TreeEditor = () => {
@@ -18,7 +19,7 @@ const TreeEditor = () => {
 
   // --- GLOBAL STATE ---
   const [nodes, setNodes] = useState([]);
-  const [treeName, setTreeName] = useState("Family Tree"); // ✅ New State for Name
+  const [treeName, setTreeName] = useState("Family Tree");
   const [userRole, setUserRole] = useState('viewer');
   const [showShareModal, setShowShareModal] = useState(false);
 
@@ -35,7 +36,10 @@ const TreeEditor = () => {
   const [isDarkMode, setIsDarkMode] = useState(getInitialTheme);
   const [currentTemplate, setCurrentTemplate] = useState("hugo");
   const [showStats, setShowStats] = useState(false);
-  const [stats, setStats] = useState({ total: 0, male: 0, female: 0, living: 0 });
+  const [stats, setStats] = useState({
+    total: 0, male: 0, female: 0, living: 0,
+    upcomingBirthdays: [], topZodiac: {}, decadeCounts: {}
+  });
 
   // --- FORM DATA STATE ---
   const [formData, setFormData] = useState({
@@ -72,6 +76,27 @@ const TreeEditor = () => {
     return Math.floor(diff / 31556952000);
   };
 
+  const getZodiacSign = (dateStr) => {
+    if (!dateStr) return null;
+    const date = new Date(dateStr);
+    const day = date.getDate();
+    const month = date.getMonth() + 1;
+
+    if ((month == 1 && day <= 19) || (month == 12 && day >= 22)) return "Capricorn ♑";
+    if ((month == 1 && day >= 20) || (month == 2 && day <= 18)) return "Aquarius ♒";
+    if ((month == 2 && day >= 19) || (month == 3 && day <= 20)) return "Pisces ♓";
+    if ((month == 3 && day >= 21) || (month == 4 && day <= 19)) return "Aries ♈";
+    if ((month == 4 && day >= 20) || (month == 5 && day <= 20)) return "Taurus ♉";
+    if ((month == 5 && day >= 21) || (month == 6 && day <= 20)) return "Gemini ♊";
+    if ((month == 6 && day >= 21) || (month == 7 && day <= 22)) return "Cancer ♋";
+    if ((month == 7 && day >= 23) || (month == 8 && day <= 22)) return "Leo ♌";
+    if ((month == 8 && day >= 23) || (month == 9 && day <= 22)) return "Virgo ♍";
+    if ((month == 9 && day >= 23) || (month == 10 && day <= 22)) return "Libra ♎";
+    if ((month == 10 && day >= 23) || (month == 11 && day <= 21)) return "Scorpio ♏";
+    if ((month == 11 && day >= 22) || (month == 12 && day >= 21)) return "Sagittarius ♐";
+    return null;
+  };
+
   const getRelatives = () => {
     if (!selectedNode) return { parents: [], spouses: [], children: [], siblings: [] };
     const { mid, fid, pids = [], id } = selectedNode;
@@ -104,16 +129,43 @@ const TreeEditor = () => {
     const total = nodes.length;
     const male = nodes.filter(n => n.gender === 'male').length;
     const female = nodes.filter(n => n.gender === 'female').length;
+    const other = nodes.filter(n => n.gender === 'other').length;
     const living = nodes.filter(n => n.isAlive).length;
-    let oldest = null;
-    let maxAge = -1;
+    const deceased = total - living;
 
-    nodes.filter(n => n.isAlive && n.birthDate).forEach(n => {
-      const age = calculateAge(n.birthDate);
-      if (age > maxAge) { maxAge = age; oldest = n; }
+    const currentMonth = new Date().getMonth();
+    const upcomingBirthdays = nodes
+      .filter(n => n.isAlive && n.birthDate && new Date(n.birthDate).getMonth() === currentMonth)
+      .map(n => ({
+        name: n.name,
+        day: new Date(n.birthDate).getDate(),
+        age: calculateAge(n.birthDate) + 1
+      }))
+      .sort((a, b) => a.day - b.day);
+
+    const zodiacCounts = {};
+    const decadeCounts = {};
+
+    nodes.forEach(n => {
+      if (n.birthDate) {
+        const sign = getZodiacSign(n.birthDate);
+        if (sign) zodiacCounts[sign] = (zodiacCounts[sign] || 0) + 1;
+
+        const year = new Date(n.birthDate).getFullYear();
+        const decade = Math.floor(year / 10) * 10;
+        decadeCounts[decade] = (decadeCounts[decade] || 0) + 1;
+      }
     });
 
-    setStats({ total, male, female, living, oldestName: oldest?.name, oldestAge: maxAge });
+    let topZodiac = { sign: '-', count: 0 };
+    Object.entries(zodiacCounts).forEach(([sign, count]) => {
+      if (count > topZodiac.count) topZodiac = { sign, count };
+    });
+
+    setStats({
+      total, male, female, other, living, deceased,
+      upcomingBirthdays, topZodiac, decadeCounts
+    });
     setShowStats(true);
   };
 
@@ -123,9 +175,7 @@ const TreeEditor = () => {
 
   const loadTreeData = async () => {
     try {
-      // 1. Get Members & Role
       const membersRes = await api.get(`/trees/${treeId}/members`);
-
       if (membersRes.data.role) {
         setUserRole(membersRes.data.role);
         setNodes(membersRes.data.members);
@@ -134,14 +184,10 @@ const TreeEditor = () => {
         setNodes(membersRes.data);
       }
 
-      // 2. ✅ Get Tree Details (Name)
-      // Note: If backend forbids non-owners from GET /trees/:id, this might fail.
-      // Ideally, the 'getMembers' endpoint should return the tree name too.
       try {
         const treeRes = await api.get(`/trees/${treeId}`);
         setTreeName(treeRes.data.name);
       } catch (err) {
-        // Fail silently if user is viewer and backend blocks details
         console.log("Could not fetch tree metadata (likely permission issue)");
       }
 
@@ -183,7 +229,7 @@ const TreeEditor = () => {
       await api.put(`/trees/${treeId}/members/${selectedNode.id}`, payload);
       toast.success("Updated");
       setSidebarOpen(false);
-      loadTreeData(); // Refresh
+      loadTreeData();
     } catch {
       toast.error("Update failed");
     }
@@ -201,7 +247,7 @@ const TreeEditor = () => {
       await api.post(`/trees/${treeId}/members`, payload);
       toast.success("Added Successfully");
       setSidebarOpen(false);
-      loadTreeData(); // Refresh
+      loadTreeData();
     } catch (error) {
       console.error(error);
       toast.error("Failed to add member");
@@ -214,7 +260,7 @@ const TreeEditor = () => {
       await api.delete(`/trees/${treeId}/members/${selectedNode.id}`);
       toast.success("Removed");
       setSidebarOpen(false);
-      loadTreeData(); // Refresh
+      loadTreeData();
     } catch {
       toast.error("Delete failed");
     }
@@ -273,9 +319,7 @@ const TreeEditor = () => {
   };
 
   const openGenericAddForm = (type) => {
-    // --- 🛑 FIX: Prevent Floating Siblings ---
     if (type === "sibling") {
-      // If the selected person has NO parents (fid/mid are null/undefined)
       if (!selectedNode.fid && !selectedNode.mid) {
         toast.error("Cannot add sibling: This member has no parents recorded. Please add a Father or Mother first.", {
           duration: 4000,
@@ -284,23 +328,12 @@ const TreeEditor = () => {
         return;
       }
     }
-    // ----------------------------------------
 
     setRelativeType(type);
     setLinkChildrenIds([]);
     setFormData({
-      name: "",
-      gender: type === "mother" ? "female" : "male",
-      birthDate: "",
-      deathDate: "",
-      isAlive: true,
-      img: DEFAULT_IMG,
-      contactNo: "",
-      relativeId: selectedNode.id,
-      relationType: type,
-      mid: null,
-      fid: null,
-      pids: []
+      name: "", gender: type === "mother" ? "female" : "male", birthDate: "", deathDate: "", isAlive: true, img: DEFAULT_IMG, contactNo: "",
+      relativeId: selectedNode.id, relationType: type, mid: null, fid: null, pids: []
     });
     setSidebarMode("add-form");
   };
@@ -320,7 +353,6 @@ const TreeEditor = () => {
 
   useEffect(() => {
     if (divRef.current) {
-
       if (nodes.length > 0) {
         nodesRef.current = nodes;
 
@@ -338,7 +370,7 @@ const TreeEditor = () => {
           mode: isDarkMode ? 'dark' : 'light',
           enableSearch: false,
           toolbar: false,
-          mouseScrool: FamilyTree.action.zoom,   // Enable zoom
+          mmouseScrool: FamilyTree.action.zoom,   // Enable zoom
           scaleInitial: FamilyTree.match.boundary,  // Auto-fit tree
           scaleMin: 0.3,                         // Minimum zoom
           scaleMax: 2.5,                         // Maximum zoom
@@ -397,7 +429,7 @@ const TreeEditor = () => {
           </div>
         </div>
 
-        {/* ✅ CENTER TREE NAME BADGE */}
+        {/* Tree Name Badge */}
         <div className={`absolute left-1/2 -translate-x-1/2 pointer-events-auto hidden md:flex items-center gap-2 px-6 py-2 rounded-xl shadow-lg border backdrop-blur-md
           ${isDarkMode ? 'bg-slate-900/80 border-slate-700 text-gray-100' : 'bg-white/80 border-gray-200 text-gray-800'}`}>
           <TreePine size={18} className="text-green-500" />
@@ -560,6 +592,7 @@ const TreeEditor = () => {
               </div>
             )}
 
+            {/* --- EDIT / ADD FORMS (Sidebar content) --- */}
             {sidebarMode === "edit" && (
               <div className="space-y-4">
                 <h3 className="font-bold text-lg mb-3">Edit Member</h3>
@@ -692,9 +725,18 @@ const TreeEditor = () => {
         </div>
       )}
 
+      {/* --- ✅ NEW: STATS MODAL (Extracted) --- */}
+      <StatsModal
+        isOpen={showStats}
+        onClose={() => setShowStats(false)}
+        stats={stats}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* --- SHARE MODAL --- */}
       {showShareModal && <ShareModal treeId={treeId} onClose={() => setShowShareModal(false)} />}
 
-      {/* --- ✅ UPDATED EMPTY STATE --- */}
+      {/* --- EMPTY STATE --- */}
       {nodes.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
           {canEdit ? (
