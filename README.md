@@ -78,10 +78,6 @@ Open a new terminal, navigate to the client directory:
 cd frontend
 npm install
 ```
-Create a .env file in the frontend folder (if using Vite):
-```bash
-VITE_API_URL=http://localhost:5000/api
-```
 Start the React application:
 ```bash
 npm run dev
