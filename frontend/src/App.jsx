@@ -7,6 +7,7 @@ import JoinTree from './pages/JoinTree';
 import ProtectedRoute from './components/ProtectedRoute'; // Keeps strangers OUT
 import PublicRoute from './components/PublicRoute';       // Keeps members IN
 import { Toaster } from 'react-hot-toast';
+import MembersList from './pages/MembersList';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/tree/:treeId" element={<TreeEditor />} />
+          <Route path="/tree/:treeId/list" element={<MembersList />} />
           <Route path="/join/:token" element={<JoinTree />} />
         </Route>
 
