@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { getInitialTheme, toggleTheme } from "../utils/theme";
-import { 
-  Plus, Trash2, TreePine, Moon, Sun, Bell, Check, X, 
-  Shield, Users, Eye, Share2, AlertTriangle, User, LogOut 
-} from "lucide-react"; 
+import {
+  Plus, Trash2, TreePine, Moon, Sun, Bell, Check, X,
+  Shield, Users, Eye, Share2, AlertTriangle, User
+} from "lucide-react";
 import ShareModal from "../components/ShareModal";
+import ProfileModal from "../components/ProfileModal"; // ✅ Import ProfileModal
 import toast from "react-hot-toast";
 
 const Dashboard = () => {
@@ -20,7 +21,7 @@ const Dashboard = () => {
   // --- Modal States ---
   const [showModal, setShowModal] = useState(false);
   const [showNotifModal, setShowNotifModal] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false); // ✅ Profile Menu State
+  const [showProfileModal, setShowProfileModal] = useState(false); // ✅ Switched from Menu to Modal
   const [sharingTreeId, setSharingTreeId] = useState(null);
   const [deleteTargetTree, setDeleteTargetTree] = useState(null);
 
@@ -181,15 +182,14 @@ const Dashboard = () => {
   };
 
   return (
-    <div className={`min-h-screen p-4 sm:p-8 transition-colors ${
-      isDarkMode ? "bg-gray-900 text-white" : "bg-gradient-to-b from-green-50 to-gray-100 text-gray-900"
-    }`} onClick={() => setShowProfileMenu(false)}>
-      
+    <div className={`min-h-screen p-4 sm:p-8 transition-colors ${isDarkMode ? "bg-gray-900 text-white" : "bg-gradient-to-b from-green-50 to-gray-100 text-gray-900"
+      }`}>
+
       <div className="max-w-7xl mx-auto">
 
         {/* --- HEADER SECTION --- */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 sm:mb-10 gap-6 md:gap-0">
-          
+
           {/* Title Area */}
           <div className="text-center md:text-left w-full md:w-auto">
             <div className="flex items-center justify-center md:justify-start gap-2">
@@ -202,77 +202,51 @@ const Dashboard = () => {
           </div>
 
           {/* Controls Area */}
-          <div className="flex w-full md:w-auto justify-between md:justify-end items-center gap-3">
-            
-            {/* 1. New Tree Button (Left on Mobile) */}
+          <div className="flex w-full md:w-auto justify-end items-center gap-2 sm:gap-3">
+
+            {/* 1. New Tree Button - Placed first in the group */}
             <button
               onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 sm:px-6 py-3 rounded-xl shadow-md transition text-sm sm:text-base font-medium"
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-3 py-2 sm:px-5 sm:py-3 rounded-xl shadow-md transition text-sm sm:text-base font-medium"
             >
-              <Plus size={20} /> <span className="hidden sm:inline">New Tree</span> <span className="sm:hidden">New</span>
+              <Plus size={20} />
+              {/* Responsive Text: 'New' on mobile, 'New Tree' on larger screens */}
+              <span className="hidden sm:inline">New Tree</span>
+              <span className="sm:hidden">New</span>
             </button>
 
-            {/* Right Group: Notification -> Theme -> Profile */}
-            <div className="flex gap-2 sm:gap-3">
-              
-              {/* 2. Notification Bell */}
-              <button
-                onClick={() => setShowNotifModal(true)}
-                className={`relative p-3 rounded-xl shadow-md transition ${
-                  isDarkMode ? "bg-gray-700 text-white" : "bg-white text-gray-700"
+            {/* 2. Notification Bell */}
+            <button
+              onClick={() => setShowNotifModal(true)}
+              className={`relative p-3 rounded-xl shadow-md transition ${isDarkMode ? "bg-gray-700 text-white" : "bg-white text-gray-700"
                 }`}
-              >
-                <Bell size={20} />
-                {pendingRequests.length > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full animate-bounce">
-                    {pendingRequests.length}
-                  </span>
-                )}
-              </button>
+            >
+              <Bell size={20} />
+              {pendingRequests.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full animate-bounce">
+                  {pendingRequests.length}
+                </span>
+              )}
+            </button>
 
-              {/* 3. Theme Toggle */}
-              <button
-                onClick={() => toggleTheme(isDarkMode, setIsDarkMode)}
-                className={`p-3 rounded-xl shadow-md transition ${
-                  isDarkMode ? "bg-gray-700 text-white" : "bg-white text-gray-700"
+            {/* 3. Theme Toggle */}
+            <button
+              onClick={() => toggleTheme(isDarkMode, setIsDarkMode)}
+              className={`p-3 rounded-xl shadow-md transition ${isDarkMode ? "bg-gray-700 text-white" : "bg-white text-gray-700"
                 }`}
-              >
-                {isDarkMode ? <Moon size={20} /> : <Sun size={20} className="text-yellow-500" />}
-              </button>
+            >
+              {isDarkMode ? <Moon size={18} /> : <Sun size={18} className="text-yellow-500" />}
+            </button>
 
-              {/* 4. Profile Menu (New) */}
-              <div className="relative">
-                <button
-                  onClick={(e) => { e.stopPropagation(); setShowProfileMenu(!showProfileMenu); }}
-                  className={`p-3 rounded-xl shadow-md transition ${
-                    isDarkMode ? "bg-gray-700 text-white" : "bg-white text-gray-700"
-                  }`}
-                >
-                  <User size={20} />
-                </button>
+            {/* 4. Profile Menu (Opens Modal) */}
+            <button
+              onClick={() => setShowProfileModal(true)}
+              className={`p-3 rounded-xl shadow-md transition ${isDarkMode ? "bg-gray-700 text-white" : "bg-white text-gray-700"
+                }`}
+            >
+              <User size={20} />
+            </button>
 
-                {/* Profile Popover */}
-                {showProfileMenu && (
-                  <div className={`absolute right-0 top-14 w-48 rounded-xl shadow-2xl border p-2 z-50 animate-fade-in
-                    ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                    
-                    <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 mb-2">
-                      <p className="text-sm font-bold truncate">{user?.name || 'User'}</p>
-                      <p className="text-xs opacity-60 truncate">{user?.email}</p>
-                    </div>
-
-                    <button 
-                      onClick={handleLogout}
-                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition
-                        ${isDarkMode ? 'hover:bg-red-900/30 text-red-400' : 'hover:bg-red-50 text-red-600'}`}
-                    >
-                      <LogOut size={16} /> Logout
-                    </button>
-                  </div>
-                )}
-              </div>
-
-            </div>
           </div>
         </div>
 
@@ -283,16 +257,14 @@ const Dashboard = () => {
             placeholder="Search trees..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className={`flex-1 p-3 w-full rounded-lg border outline-none focus:ring-2 focus:ring-green-500 transition text-sm sm:text-base ${
-              isDarkMode ? "bg-gray-800 text-white border-gray-600" : "bg-white"
-            }`}
+            className={`flex-1 p-3 w-full rounded-lg border outline-none focus:ring-2 focus:ring-green-500 transition text-sm sm:text-base ${isDarkMode ? "bg-gray-800 text-white border-gray-600" : "bg-white"
+              }`}
           />
           <select
             value={sortMode}
             onChange={(e) => setSortMode(e.target.value)}
-            className={`w-auto p-3 rounded-lg border outline-none focus:ring-2 focus:ring-green-500 transition text-sm sm:text-base ${
-              isDarkMode ? "bg-gray-800 text-white border-gray-600" : "bg-white"
-            }`}
+            className={`w-auto p-3 rounded-lg border outline-none focus:ring-2 focus:ring-green-500 transition text-sm sm:text-base ${isDarkMode ? "bg-gray-800 text-white border-gray-600" : "bg-white"
+              }`}
           >
             <option value="latest" className={isDarkMode ? "bg-gray-800" : ""}>Latest</option>
             <option value="az" className={isDarkMode ? "bg-gray-800" : ""}>A → Z</option>
@@ -314,18 +286,15 @@ const Dashboard = () => {
             <div
               key={tree._id}
               onClick={() => navigate(`/tree/${tree._id}`)}
-              className={`group relative p-6 rounded-2xl shadow-md hover:shadow-xl hover:-translate-y-1 border transition cursor-pointer ${
-                isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white"
-              }`}
+              className={`group relative p-6 rounded-2xl shadow-md hover:shadow-xl hover:-translate-y-1 border transition cursor-pointer ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white"
+                }`}
             >
               <div className="flex justify-between items-start mb-2">
                 <h3 className="text-xl font-bold truncate max-w-[70%]">{tree.name}</h3>
 
                 <div className="flex gap-2 items-center">
-                  {/* Role Badge */}
                   {getRoleBadge(tree.currentUserRole)}
 
-                  {/* Share Button */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -337,7 +306,6 @@ const Dashboard = () => {
                     <Share2 size={18} />
                   </button>
 
-                  {/* Edit */}
                   {(tree.currentUserRole === 'owner' || tree.currentUserRole === 'editor') && (
                     <button
                       onClick={(e) => {
@@ -353,7 +321,6 @@ const Dashboard = () => {
                     </button>
                   )}
 
-                  {/* Delete */}
                   {tree.currentUserRole === 'owner' && (
                     <button
                       onClick={(e) => initiateDeleteTree(tree, e)}
@@ -378,7 +345,7 @@ const Dashboard = () => {
               <div className="text-xs opacity-80 pt-3 border-t border-gray-200 dark:border-gray-700 mt-2 flex justify-between items-center">
                 <button
                   onClick={(e) => {
-                    e.stopPropagation(); 
+                    e.stopPropagation();
                     navigate(`/tree/${tree._id}/list`);
                   }}
                   className={`flex items-center gap-1.5 px-2 py-1 rounded transition
@@ -395,12 +362,11 @@ const Dashboard = () => {
           ))}
         </div>
 
-        {/* --- MODAL (Edit/Create) --- */}
+        {/* --- MODAL (Edit/Create Tree) --- */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className={`p-6 sm:p-8 rounded-2xl w-full max-w-md shadow-lg ${
-              isDarkMode ? "bg-gray-800 text-white" : "bg-white"
-            }`}>
+            <div className={`p-6 sm:p-8 rounded-2xl w-full max-w-md shadow-lg ${isDarkMode ? "bg-gray-800 text-white" : "bg-white"
+              }`}>
               <h2 className="text-2xl font-bold mb-6">
                 {editingTree ? "Edit Tree" : "New Tree"}
               </h2>
@@ -415,9 +381,8 @@ const Dashboard = () => {
                       ? setEditTreeName(e.target.value)
                       : setNewTreeName(e.target.value)
                   }
-                  className={`w-full border p-3 rounded-lg mb-3 outline-none focus:ring-2 focus:ring-green-500 ${
-                    isDarkMode ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400" : ""
-                  }`}
+                  className={`w-full border p-3 rounded-lg mb-3 outline-none focus:ring-2 focus:ring-green-500 ${isDarkMode ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400" : ""
+                    }`}
                   required
                 />
                 <textarea
@@ -429,13 +394,11 @@ const Dashboard = () => {
                       ? setEditTreeDescription(e.target.value)
                       : setNewTreeDescription(e.target.value)
                   }
-                  className={`w-full border p-3 rounded-lg mb-6 outline-none focus:ring-2 focus:ring-green-500 ${
-                    isDarkMode ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400" : ""
-                  }`}
+                  className={`w-full border p-3 rounded-lg mb-6 outline-none focus:ring-2 focus:ring-green-500 ${isDarkMode ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400" : ""
+                    }`}
                 />
                 <div className="flex justify-end gap-3">
-                  <button type="button" onClick={resetModal} className={`px-4 py-2 rounded-lg transition ${
-                      isDarkMode ? "bg-gray-600 hover:bg-gray-500 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800"
+                  <button type="button" onClick={resetModal} className={`px-4 py-2 rounded-lg transition ${isDarkMode ? "bg-gray-600 hover:bg-gray-500 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800"
                     }`}>
                     Cancel
                   </button>
@@ -451,7 +414,7 @@ const Dashboard = () => {
         {/* --- NOTIFICATIONS MODAL --- */}
         {showNotifModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowNotifModal(false)}>
-            <div 
+            <div
               className={`p-6 rounded-2xl w-full max-w-lg shadow-2xl relative max-h-[80vh] flex flex-col ${isDarkMode ? "bg-gray-800 text-white" : "bg-white"}`}
               onClick={e => e.stopPropagation()}
             >
@@ -473,16 +436,16 @@ const Dashboard = () => {
                         <p className="font-bold text-sm sm:text-base">{req.user?.name || "Unknown User"}</p>
                         <p className="text-xs opacity-70 mb-1">{req.user?.email}</p>
                         <p className="text-xs flex items-center gap-1">
-                          wants to edit <TreePine size={12} className="text-green-500"/> <span className="font-semibold">{req.treeName}</span>
+                          wants to edit <TreePine size={12} className="text-green-500" /> <span className="font-semibold">{req.treeName}</span>
                         </p>
                       </div>
                       <div className="flex gap-2 w-full sm:w-auto justify-end">
-                        <button 
+                        <button
                           onClick={() => handleManageRequest(req.treeId, req.user._id, true)}
                           className="p-2 bg-green-100 text-green-700 rounded-full hover:bg-green-200" title="Approve">
                           <Check size={18} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleManageRequest(req.treeId, req.user._id, false)}
                           className="p-2 bg-red-100 text-red-700 rounded-full hover:bg-red-200" title="Deny">
                           <X size={18} />
@@ -498,16 +461,26 @@ const Dashboard = () => {
 
         {/* --- SHARE MODAL --- */}
         {sharingTreeId && (
-          <ShareModal 
-            treeId={sharingTreeId} 
-            onClose={() => setSharingTreeId(null)} 
+          <ShareModal
+            treeId={sharingTreeId}
+            onClose={() => setSharingTreeId(null)}
           />
         )}
 
-        {/* --- DELETE CONFIRMATION MODAL --- */}
+        {/* --- ✅ PROFILE MODAL --- */}
+        {showProfileModal && user && (
+          <ProfileModal
+            user={user}
+            onClose={() => setShowProfileModal(false)}
+            onLogout={handleLogout}
+            onUpdateUser={setUser}
+          />
+        )}
+
+        {/* --- DELETE TREE CONFIRMATION MODAL --- */}
         {deleteTargetTree && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] backdrop-blur-sm p-4" onClick={() => setDeleteTargetTree(null)}>
-            <div 
+            <div
               className={`p-8 rounded-3xl w-full max-w-sm shadow-2xl border ${isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-gray-100'}`}
               onClick={e => e.stopPropagation()}
             >
@@ -517,18 +490,18 @@ const Dashboard = () => {
                 </div>
                 <h3 className="text-xl font-bold mb-2">Delete Tree?</h3>
                 <p className={`text-sm mb-8 leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                  Are you sure you want to delete <b className={isDarkMode ? 'text-white' : 'text-slate-900'}>{deleteTargetTree.name}</b>? <br/>
+                  Are you sure you want to delete <b className={isDarkMode ? 'text-white' : 'text-slate-900'}>{deleteTargetTree.name}</b>? <br />
                   This action <b>cannot</b> be undone. All members and data will be lost.
                 </p>
-                
+
                 <div className="flex gap-3">
-                  <button 
+                  <button
                     onClick={() => setDeleteTargetTree(null)}
                     className={`flex-1 py-3 rounded-xl font-medium transition ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}
                   >
                     Cancel
                   </button>
-                  <button 
+                  <button
                     onClick={confirmDeleteTree}
                     className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition shadow-lg shadow-red-500/30"
                   >

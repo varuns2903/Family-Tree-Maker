@@ -1,11 +1,10 @@
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 
 // Generate JWT Token
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: '30d', // Token valid for 30 days
+    expiresIn: '30d',
   });
 };
 
@@ -28,20 +27,17 @@ const registerUser = async (req, res) => {
       throw new Error('User already exists');
     }
 
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Create user
+    // Create user (Password hashing is handled by User model pre-save hook)
     const user = await User.create({
       name,
       email,
-      passwordHash: hashedPassword,
+      password, 
     });
 
     if (user) {
       res.status(201).json({
         _id: user.id,
+        name: user.name,
         email: user.email,
         token: generateToken(user._id),
       });
@@ -50,7 +46,6 @@ const registerUser = async (req, res) => {
       throw new Error('Invalid user data');
     }
   } catch (error) {
-    // Pass error to the errorMiddleware
     res.status(400).json({ message: error.message });
   }
 };
@@ -62,13 +57,14 @@ const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Check for user email
-    const user = await User.findOne({ email });    
+    // Check for user email, explicitly select password since we set select:false in model
+    const user = await User.findOne({ email }).select('+password');
 
-    // Check password
-    if (user && (await bcrypt.compare(password, user.passwordHash))) {
+    // Check password using model method
+    if (user && (await user.matchPassword(password))) {
       res.json({
         _id: user.id,
+        name: user.name,
         email: user.email,
         token: generateToken(user._id),
       });
@@ -85,7 +81,6 @@ const loginUser = async (req, res) => {
 // @route   GET /api/auth/me
 // @access  Private
 const getMe = async (req, res) => {
-  // req.user was set by the authMiddleware
   res.status(200).json(req.user);
 };
 
@@ -97,7 +92,6 @@ const searchUsers = async (req, res) => {
     const { query } = req.query;
     if (!query) return res.status(200).json([]);
 
-    // Regex for partial match, case-insensitive
     const users = await User.find({
       $and: [
         { _id: { $ne: req.user.id } }, // Exclude self
@@ -108,10 +102,74 @@ const searchUsers = async (req, res) => {
           ]
         }
       ]
-    }).select('name email _id').limit(5); // Limit results to 5    
+    }).select('name email _id').limit(5);
 
     res.status(200).json(users);
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Update User Profile
+// @route   PUT /api/auth/profile
+// @access  Private
+const updateProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (user) {
+      // Check if email is being changed and if it's already taken
+      if (req.body.email && req.body.email !== user.email) {
+        const emailExists = await User.findOne({ email: req.body.email });
+        if (emailExists) {
+          return res.status(400).json({ message: 'Email already in use' });
+        }
+      }
+
+      user.name = req.body.name || user.name;
+      user.email = req.body.email || user.email;
+
+      const updatedUser = await user.save();
+
+      res.json({
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        token: generateToken(updatedUser._id),
+      });
+    } else {
+      res.status(404).json({ message: 'User not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Update Password
+// @route   PUT /api/auth/password
+// @access  Private
+const updatePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    // We need to explicitly select password if you set select: false in model
+    const user = await User.findById(req.user.id).select('+password');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Check current password using model method
+    if (!(await user.matchPassword(currentPassword))) {
+      return res.status(400).json({ message: 'Invalid current password' });
+    }
+
+    // Update password (Model hook will hash it automatically)
+    user.password = newPassword;
+    await user.save();
+
+    res.json({ message: 'Password updated successfully' });
+  } catch (error) {    
     res.status(500).json({ message: error.message });
   }
 };
@@ -121,4 +179,6 @@ module.exports = {
   loginUser,
   getMe,
   searchUsers,
+  updateProfile,
+  updatePassword,
 };
