@@ -104,17 +104,18 @@ const ShareModal = ({ treeId, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] backdrop-blur-sm p-4" onClick={onClose}>
       <div 
-        className={`p-8 rounded-3xl w-full max-w-lg shadow-2xl m-4 h-[80vh] flex flex-col transform transition-all scale-100
+        // ✅ Responsive Width (w-[95%]), Padding (p-5 vs p-8), and Height
+        className={`p-5 sm:p-8 rounded-2xl sm:rounded-3xl w-[95%] sm:w-full max-w-lg shadow-2xl h-[75vh] sm:h-[80vh] flex flex-col transform transition-all scale-100
           ${document.documentElement.classList.contains('dark') 
             ? "bg-slate-900 text-slate-100 border border-slate-800" 
             : "bg-white text-slate-800"}`}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
+        <div className="flex justify-between items-center mb-6 sm:mb-8">
+          <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
             <UserCog className="text-green-600 dark:text-green-400" /> Share & Access
           </h2>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition">
@@ -125,15 +126,15 @@ const ShareModal = ({ treeId, onClose }) => {
         {loading ? (
           <div className="text-center py-8 text-slate-500 animate-pulse">Loading...</div>
         ) : (
-          <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-8">
+          <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6 sm:space-y-8">
             
             {/* 1. DIRECT INVITE SECTION (Only Owner) */}
             {isOwner && (
-                <div className={`p-5 rounded-2xl border transition
+                <div className={`p-4 sm:p-5 rounded-2xl border transition
                   ${document.documentElement.classList.contains('dark') 
                     ? "bg-slate-800/50 border-slate-700" 
                     : "bg-green-50/50 border-green-100"}`}>
-                    <label className={`text-xs font-bold uppercase mb-3 block tracking-wider
+                    <label className={`text-xs font-bold uppercase mb-2 sm:mb-3 block tracking-wider
                       ${document.documentElement.classList.contains('dark') ? "text-green-400" : "text-green-700"}`}>
                         Direct Invite
                     </label>
@@ -142,12 +143,12 @@ const ShareModal = ({ treeId, onClose }) => {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Search by name or email..."
-                            className={`w-full pl-10 pr-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-green-500 transition
+                            className={`w-full pl-10 pr-4 py-2.5 sm:py-3 rounded-xl border outline-none focus:ring-2 focus:ring-green-500 transition text-sm sm:text-base
                               ${document.documentElement.classList.contains('dark') 
                                 ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500" 
                                 : "bg-white border-gray-200 placeholder-slate-400"}`}
                         />
-                        <Search className={`absolute left-3 top-3.5 ${document.documentElement.classList.contains('dark') ? "text-slate-500" : "text-slate-400"}`} size={18} />
+                        <Search className={`absolute left-3 top-3 ${document.documentElement.classList.contains('dark') ? "text-slate-500" : "text-slate-400"}`} size={18} />
                     </div>
 
                     {/* Search Results */}
@@ -157,13 +158,13 @@ const ShareModal = ({ treeId, onClose }) => {
                             {searchResults.map(user => (
                                 <div key={user._id} className={`flex justify-between items-center p-3 transition
                                   ${document.documentElement.classList.contains('dark') ? "hover:bg-slate-750" : "hover:bg-slate-50"}`}>
-                                    <div>
-                                        <p className="text-sm font-bold">{user.name}</p>
-                                        <p className={`text-xs ${document.documentElement.classList.contains('dark') ? "text-slate-400" : "text-slate-500"}`}>{user.email}</p>
+                                    <div className="overflow-hidden">
+                                        <p className="text-sm font-bold truncate">{user.name}</p>
+                                        <p className={`text-xs truncate ${document.documentElement.classList.contains('dark') ? "text-slate-400" : "text-slate-500"}`}>{user.email}</p>
                                     </div>
                                     <button 
                                         onClick={() => handleDirectAdd(user)}
-                                        className="bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition flex items-center gap-1 text-xs font-bold shadow-sm">
+                                        className="bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition flex items-center gap-1 text-xs font-bold shadow-sm whitespace-nowrap">
                                         <UserPlus size={14} /> Add
                                     </button>
                                 </div>
@@ -177,11 +178,11 @@ const ShareModal = ({ treeId, onClose }) => {
             )}
 
             {/* 2. COPY LINK SECTION */}
-            <div className={`p-5 rounded-2xl border transition
+            <div className={`p-4 sm:p-5 rounded-2xl border transition
               ${document.documentElement.classList.contains('dark') 
                 ? "bg-slate-800/50 border-slate-700" 
                 : "bg-white border-gray-200"}`}>
-              <label className={`text-xs font-bold uppercase mb-3 block tracking-wider
+              <label className={`text-xs font-bold uppercase mb-2 sm:mb-3 block tracking-wider
                 ${document.documentElement.classList.contains('dark') ? "text-slate-400" : "text-slate-500"}`}>
                 Public Link
               </label>
@@ -189,14 +190,14 @@ const ShareModal = ({ treeId, onClose }) => {
                 <input 
                   readOnly 
                   value={shareUrl} 
-                  className={`w-full rounded-xl px-3 py-3 text-sm focus:outline-none border transition
+                  className={`w-full rounded-xl px-3 py-2.5 sm:py-3 text-sm focus:outline-none border transition
                     ${document.documentElement.classList.contains('dark') 
                       ? "bg-slate-800 border-slate-700 text-slate-300" 
                       : "bg-slate-50 border-gray-200 text-slate-600"}`}
                 />
                 <button 
                   onClick={copyToClipboard}
-                  className={`p-3 rounded-xl transition flex-shrink-0 border
+                  className={`p-2.5 sm:p-3 rounded-xl transition flex-shrink-0 border
                     ${document.documentElement.classList.contains('dark') 
                       ? "bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300" 
                       : "bg-slate-100 hover:bg-slate-200 border-gray-200 text-slate-600"}`}
@@ -209,16 +210,17 @@ const ShareModal = ({ treeId, onClose }) => {
 
             {/* 3. MANAGE ACCESS SECTION */}
             <div>
-              <h3 className="font-bold text-lg mb-5">Current Members</h3>
+              <h3 className="font-bold text-lg mb-4 sm:mb-5">Current Members</h3>
               
-              <div className={`flex items-center justify-between p-4 mb-3 rounded-2xl border transition
+              {/* Owner Badge */}
+              <div className={`flex items-center justify-between p-3 sm:p-4 mb-3 rounded-2xl border transition
                 ${document.documentElement.classList.contains('dark') 
                   ? "bg-green-900/20 border-green-800/50" 
                   : "bg-green-50 border-green-100"}`}>
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-sm
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center shadow-sm
                     ${document.documentElement.classList.contains('dark') ? "bg-green-800 text-green-200" : "bg-green-100 text-green-600"}`}>
-                    <Shield size={24} />
+                    <Shield size={20} className="sm:w-6 sm:h-6" />
                   </div>
                   <div>
                     <p className="font-bold text-sm">Tree Owner</p>
@@ -237,32 +239,35 @@ const ShareModal = ({ treeId, onClose }) => {
                 )}
 
                 {collaborators.map((collab) => (
-                  <div key={collab.user._id} className={`flex items-center justify-between p-4 rounded-2xl border transition
+                  <div key={collab.user._id} className={`flex items-center justify-between p-3 sm:p-4 rounded-2xl border transition
                     ${document.documentElement.classList.contains('dark') 
                       ? "bg-slate-800/40 border-slate-700 hover:bg-slate-800/70" 
                       : "bg-white border-gray-200 hover:bg-slate-50/80"}`}>
-                    <div className="flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-sm
+                    
+                    {/* User Info */}
+                    <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
+                      <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-xs sm:text-sm shadow-sm
                         ${document.documentElement.classList.contains('dark') ? "bg-slate-700 text-slate-300" : "bg-slate-100 text-slate-600"}`}>
                         {collab.user.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="overflow-hidden">
-                        <p className="font-bold text-sm truncate w-[120px] sm:w-auto">
+                        <p className="font-bold text-sm truncate w-[100px] sm:w-[140px]">
                           {collab.user.name}
                         </p>
-                        <p className={`text-xs truncate w-[120px] sm:w-auto ${document.documentElement.classList.contains('dark') ? "text-slate-400" : "text-slate-500"}`}>
+                        <p className={`text-xs truncate w-[100px] sm:w-[140px] ${document.documentElement.classList.contains('dark') ? "text-slate-400" : "text-slate-500"}`}>
                           {collab.user.email}
                         </p>
                       </div>
                     </div>
 
+                    {/* Actions / Role */}
                     <div className="flex items-center gap-2">
                       {isOwner ? (
                         <>
                           <select 
                             value={collab.role}
                             onChange={(e) => handleRoleChange(collab.user._id, e.target.value)}
-                            className={`text-xs rounded-lg px-2.5 py-1.5 font-medium border cursor-pointer outline-none transition
+                            className={`text-xs rounded-lg px-2 py-1.5 font-medium border cursor-pointer outline-none transition
                               ${document.documentElement.classList.contains('dark') 
                                 ? "bg-slate-800 border-slate-600 text-slate-300 focus:border-slate-500" 
                                 : "bg-white border-gray-300 text-slate-600 focus:border-blue-400"}`}
@@ -273,7 +278,7 @@ const ShareModal = ({ treeId, onClose }) => {
 
                           <button 
                             onClick={() => handleRemoveUser(collab.user._id)}
-                            className={`p-2 rounded-lg transition border
+                            className={`p-1.5 sm:p-2 rounded-lg transition border
                               ${document.documentElement.classList.contains('dark') 
                                 ? "text-red-400 hover:bg-red-900/20 border-transparent hover:border-red-900/50" 
                                 : "text-red-500 hover:bg-red-50 border-transparent hover:border-red-100"}`}

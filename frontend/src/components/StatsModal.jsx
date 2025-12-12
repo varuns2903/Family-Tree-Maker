@@ -10,19 +10,19 @@ const StatsModal = ({ isOpen, onClose, stats, isDarkMode }) => {
 
   return (
     <div 
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] backdrop-blur-sm" 
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] backdrop-blur-sm p-4" 
       onClick={onClose}
     >
       <div 
-        className={`p-8 rounded-3xl w-full max-w-3xl shadow-2xl m-4 max-h-[90vh] overflow-y-auto custom-scrollbar transform transition-all scale-100
+        className={`p-5 sm:p-8 rounded-3xl w-[95%] sm:w-full max-w-3xl shadow-2xl m-auto max-h-[85vh] sm:max-h-[90vh] overflow-y-auto custom-scrollbar transform transition-all scale-100
           ${isDarkMode ? 'bg-slate-900 text-slate-100 border border-slate-800' : 'bg-white text-slate-800'}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-2xl font-bold flex items-center gap-2.5">
+        <div className="flex justify-between items-center mb-6 sm:mb-8">
+          <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2.5">
             <div className={`p-2 rounded-xl ${isDarkMode ? 'bg-blue-900/30' : 'bg-blue-50'}`}>
-              <PieChart className="text-blue-500" size={24} />
+              <PieChart className="text-blue-500" size={20} />
             </div>
             Family Insights
           </h2>
@@ -34,28 +34,29 @@ const StatsModal = ({ isOpen, onClose, stats, isDarkMode }) => {
           </button>
         </div>
 
-        {/* 1. Demographics Grid - UPDATED to 3 Columns */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        {/* 1. Demographics Grid - ✅ UPDATED LAYOUT */}
+        {/* Mobile: grid-cols-2 | Desktop: grid-cols-3 */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
           
-          {/* Total */}
-          <div className={`${cardBaseClass} ${!isDarkMode && 'border-blue-100 bg-blue-50/30'}`}>
-            <div className="text-3xl font-extrabold text-blue-500 mb-1">{stats.total}</div>
+          {/* Total - ✅ Spans 2 columns on mobile (Top Row), 1 on desktop */}
+          <div className={`col-span-2 sm:col-span-1 ${cardBaseClass} ${!isDarkMode && 'border-blue-100 bg-blue-50/30'}`}>
+            <div className="text-2xl sm:text-3xl font-extrabold text-blue-500 mb-1">{stats.total}</div>
             <div className={`text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 ${isDarkMode ? 'text-slate-400' : 'text-blue-700/60'}`}>
               <Users size={12} /> Members
             </div>
           </div>
 
-          {/* Living */}
+          {/* Living - 1 column */}
           <div className={`${cardBaseClass} ${!isDarkMode && 'border-green-100 bg-green-50/30'}`}>
-            <div className="text-3xl font-extrabold text-green-500 mb-1">{stats.living}</div>
+            <div className="text-2xl sm:text-3xl font-extrabold text-green-500 mb-1">{stats.living}</div>
             <div className={`text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 ${isDarkMode ? 'text-slate-400' : 'text-green-700/60'}`}>
               <Activity size={12} /> Living
             </div>
           </div>
 
-          {/* Deceased */}
+          {/* Deceased - 1 column */}
           <div className={`${cardBaseClass} ${!isDarkMode && 'border-slate-200 bg-slate-50'}`}>
-            <div className="text-3xl font-extrabold text-slate-500 mb-1">{stats.deceased}</div>
+            <div className="text-2xl sm:text-3xl font-extrabold text-slate-500 mb-1">{stats.deceased}</div>
             <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center justify-center gap-1.5">
               <Ghost size={12} /> Deceased
             </div>
@@ -63,7 +64,7 @@ const StatsModal = ({ isOpen, onClose, stats, isDarkMode }) => {
         </div>
 
         {/* 2. Gender Split Bar */}
-        <div className="mb-10">
+        <div className="mb-8 sm:mb-10">
           <div className={`flex justify-between text-xs font-bold uppercase tracking-wider mb-3 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
             <span>Gender Distribution</span>
             <span>
@@ -81,7 +82,7 @@ const StatsModal = ({ isOpen, onClose, stats, isDarkMode }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
           {/* 3. Birthdays This Month */}
-          <div className={`p-6 rounded-2xl border flex flex-col h-[300px] 
+          <div className={`p-5 sm:p-6 rounded-2xl border flex flex-col h-[250px] sm:h-[300px] 
             ${isDarkMode ? 'bg-slate-800/30 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
             
             <h3 className={`font-bold mb-4 flex items-center gap-2 ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
@@ -115,7 +116,7 @@ const StatsModal = ({ isOpen, onClose, stats, isDarkMode }) => {
           </div>
 
           {/* 4. Decade Breakdown */}
-          <div className={`p-6 rounded-2xl border flex flex-col h-[300px]
+          <div className={`p-5 sm:p-6 rounded-2xl border flex flex-col h-[250px] sm:h-[300px]
             ${isDarkMode ? 'bg-slate-800/30 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
             
             <h3 className={`font-bold mb-4 flex items-center gap-2 ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
