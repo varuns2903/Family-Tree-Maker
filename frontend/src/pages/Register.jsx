@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
-import { User, Mail, Lock, ArrowRight, Moon, Sun, TreePine } from 'lucide-react';
+import { User, Mail, Lock, ArrowRight, Moon, Sun, TreePine, Eye, EyeOff } from 'lucide-react';
 import { getInitialTheme, toggleTheme } from '../utils/theme';
 
 const Register = () => {
@@ -11,6 +11,7 @@ const Register = () => {
     email: '',
     password: ''
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(getInitialTheme);
   const navigate = useNavigate();
@@ -118,15 +119,25 @@ const Register = () => {
           <div className="relative group">
             <Lock className={`absolute left-3 top-3.5 h-5 w-5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
             <input
-              type="password"
+              type={showPassword ? "text" : "password"} // ✅ Toggles type
               name="password"
               placeholder="Choose a Password"
               value={formData.password}
               onChange={handleChange}
-              className={inputClass}
+              className={`${inputClass} pr-12`} // ✅ Added extra right padding so text doesn't hit icon
               required
               minLength={6}
             />
+            
+            {/* ✅ Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className={`absolute right-3 top-3.5 hover:opacity-80 transition-opacity focus:outline-none
+                ${isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
           </div>
 
           {/* Submit Button */}

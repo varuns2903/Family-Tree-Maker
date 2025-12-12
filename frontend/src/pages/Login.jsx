@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import toast from 'react-hot-toast'; 
-import { Lock, Mail, Moon, Sun, TreePine } from 'lucide-react'; 
+import { Lock, Mail, Moon, Sun, TreePine, Eye, EyeOff } from 'lucide-react'; 
 import { getInitialTheme, toggleTheme } from '../utils/theme';
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
+  const [showPassword, setShowPassword] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(getInitialTheme); // Theme state
   const navigate = useNavigate();
 
@@ -92,13 +93,23 @@ const Login = () => {
           <div className="relative">
             <Lock className={`absolute left-3 top-3.5 h-5 w-5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
             <input
-              type="password"
+              type={showPassword ? "text" : "password"}
               name="password"
               placeholder="Password"
               onChange={handleChange}
-              className={inputClass}
+              className={`${inputClass} pr-12`}
               required
             />
+
+            {/* ✅ Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className={`absolute right-3 top-3.5 hover:opacity-80 transition-opacity focus:outline-none
+                ${isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
           </div>
 
           <button
