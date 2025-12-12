@@ -7,6 +7,7 @@ const connectDB = require('./src/config/db');
 const authRoutes = require('./src/routes/authRoutes');
 const treeRoutes = require('./src/routes/treeRoutes');
 const memberRoutes = require('./src/routes/memberRoutes');
+const gedcomRoutes = require('./src/routes/gedcomRoutes');
 
 const { errorHandler } = require('./src/middleware/errorMiddleware');
 
@@ -23,6 +24,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/trees', treeRoutes);
 app.use('/api/trees/:treeId/members', memberRoutes);
+app.use('/api/gedcom', gedcomRoutes);
 
 app.use(errorHandler);
 

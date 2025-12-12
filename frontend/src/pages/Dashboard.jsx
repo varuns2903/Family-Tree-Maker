@@ -4,7 +4,7 @@ import api from "../api/axios";
 import { getInitialTheme, toggleTheme } from "../utils/theme";
 import {
   Plus, Trash2, TreePine, Moon, Sun, Bell, Check, X,
-  Shield, Users, Eye, Share2, AlertTriangle, User
+  Shield, Users, Eye, Share2, AlertTriangle, User, UploadCloud, FileText
 } from "lucide-react";
 import ShareModal from "../components/ShareModal";
 import ProfileModal from "../components/ProfileModal"; // ✅ Import ProfileModal
@@ -31,6 +31,10 @@ const Dashboard = () => {
   const [newTreeDescription, setNewTreeDescription] = useState("");
   const [editTreeName, setEditTreeName] = useState("");
   const [editTreeDescription, setEditTreeDescription] = useState("");
+
+  const [importFile, setImportFile] = useState(null);
+  const [modalTab, setModalTab] = useState('create'); // 'create' or 'import'
+  const [isImporting, setIsImporting] = useState(false);
 
   const navigate = useNavigate();
 
@@ -151,6 +155,29 @@ const Dashboard = () => {
       if (pendingRequests.length === 1) setShowNotifModal(false);
     } catch (error) {
       toast.error("Action failed");
+    }
+  };
+
+  const handleImport = async (e) => {
+    e.preventDefault();
+    if (!importFile) return toast.error("Please select a file");
+
+    const formData = new FormData();
+    formData.append('file', importFile);
+    formData.append('treeName', newTreeName || "Imported Tree");
+
+    setIsImporting(true);
+    try {
+      const { data } = await api.post('/gedcom/import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      toast.success("Tree imported successfully!");
+      resetModal();
+      fetchTrees();
+    } catch (error) {
+      toast.error("Import failed: " + (error.response?.data?.message || error.message));
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -367,46 +394,76 @@ const Dashboard = () => {
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className={`p-6 sm:p-8 rounded-2xl w-full max-w-md shadow-lg ${isDarkMode ? "bg-gray-800 text-white" : "bg-white"
               }`}>
-              <h2 className="text-2xl font-bold mb-6">
-                {editingTree ? "Edit Tree" : "New Tree"}
-              </h2>
-
-              <form onSubmit={editingTree ? updateTree : createTree}>
-                <input
-                  type="text"
-                  placeholder="Tree Name"
-                  value={editingTree ? editTreeName : newTreeName}
-                  onChange={(e) =>
-                    editingTree
-                      ? setEditTreeName(e.target.value)
-                      : setNewTreeName(e.target.value)
-                  }
-                  className={`w-full border p-3 rounded-lg mb-3 outline-none focus:ring-2 focus:ring-green-500 ${isDarkMode ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400" : ""
-                    }`}
-                  required
-                />
-                <textarea
-                  placeholder="Short description"
-                  rows="3"
-                  value={editingTree ? editTreeDescription : newTreeDescription}
-                  onChange={(e) =>
-                    editingTree
-                      ? setEditTreeDescription(e.target.value)
-                      : setNewTreeDescription(e.target.value)
-                  }
-                  className={`w-full border p-3 rounded-lg mb-6 outline-none focus:ring-2 focus:ring-green-500 ${isDarkMode ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400" : ""
-                    }`}
-                />
-                <div className="flex justify-end gap-3">
-                  <button type="button" onClick={resetModal} className={`px-4 py-2 rounded-lg transition ${isDarkMode ? "bg-gray-600 hover:bg-gray-500 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800"
-                    }`}>
-                    Cancel
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold">New Family Tree</h2>
+                {/* Tab Switcher */}
+                <div className={`flex rounded-lg p-1 ${isDarkMode ? "bg-gray-700" : "bg-gray-100"}`}>
+                  <button
+                    onClick={() => setModalTab('create')}
+                    className={`px-3 py-1 rounded-md text-sm font-medium transition ${modalTab === 'create' ? (isDarkMode ? 'bg-gray-600 text-white shadow' : 'bg-white text-black shadow') : 'opacity-60'}`}>
+                    Create
                   </button>
-                  <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold">
-                    {editingTree ? "Save" : "Create"}
+                  <button
+                    onClick={() => setModalTab('import')}
+                    className={`px-3 py-1 rounded-md text-sm font-medium transition ${modalTab === 'import' ? (isDarkMode ? 'bg-gray-600 text-white shadow' : 'bg-white text-black shadow') : 'opacity-60'}`}>
+                    Import
                   </button>
                 </div>
-              </form>
+              </div>
+
+              {modalTab === 'create' ? (
+                <form onSubmit={editingTree ? updateTree : createTree}>
+                  <input
+                    type="text"
+                    placeholder="Tree Name"
+                    value={editingTree ? editTreeName : newTreeName}
+                    onChange={(e) => editingTree ? setEditTreeName(e.target.value) : setNewTreeName(e.target.value)}
+                    className={`w-full border p-3 rounded-lg mb-3 outline-none focus:ring-2 focus:ring-green-500 ${isDarkMode ? "bg-gray-700 border-gray-600 text-white" : ""}`}
+                    required
+                  />
+                  <textarea
+                    placeholder="Short description"
+                    rows="3"
+                    value={editingTree ? editTreeDescription : newTreeDescription}
+                    onChange={(e) => editingTree ? setEditTreeDescription(e.target.value) : setNewTreeDescription(e.target.value)}
+                    className={`w-full border p-3 rounded-lg mb-6 outline-none focus:ring-2 focus:ring-green-500 ${isDarkMode ? "bg-gray-700 border-gray-600 text-white" : ""}`}
+                  />
+                  <div className="flex justify-end gap-3">
+                    <button type="button" onClick={resetModal} className={`px-4 py-2 rounded-lg transition ${isDarkMode ? "bg-gray-600 hover:bg-gray-500 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800"}`}>Cancel</button>
+                    <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold">{editingTree ? "Save" : "Create"}</button>
+                  </div>
+                </form>
+              ) : (
+                <form onSubmit={handleImport}>
+                  <input
+                    type="text"
+                    placeholder="Tree Name (Optional)"
+                    value={newTreeName}
+                    onChange={(e) => setNewTreeName(e.target.value)}
+                    className={`w-full border p-3 rounded-lg mb-4 outline-none focus:ring-2 focus:ring-green-500 ${isDarkMode ? "bg-gray-700 border-gray-600 text-white" : ""}`}
+                  />
+
+                  <div className={`border-2 border-dashed rounded-xl p-8 mb-6 text-center cursor-pointer transition hover:bg-opacity-50 flex flex-col items-center justify-center gap-2 relative
+            ${isDarkMode ? "border-gray-600 hover:bg-gray-700" : "border-gray-300 hover:bg-gray-50"}`}>
+                    <input
+                      type="file"
+                      accept=".ged"
+                      onChange={(e) => setImportFile(e.target.files[0])}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                    />
+                    <UploadCloud size={32} className={isDarkMode ? "text-gray-400" : "text-gray-500"} />
+                    <p className="text-sm font-medium">{importFile ? importFile.name : "Click to upload .ged file"}</p>
+                    <p className="text-xs opacity-50">Standard GEDCOM format supported</p>
+                  </div>
+
+                  <div className="flex justify-end gap-3">
+                    <button type="button" onClick={resetModal} className={`px-4 py-2 rounded-lg transition ${isDarkMode ? "bg-gray-600 hover:bg-gray-500 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800"}`}>Cancel</button>
+                    <button type="submit" disabled={isImporting} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold disabled:opacity-50 flex items-center gap-2">
+                      {isImporting ? "Importing..." : <><FileText size={18} /> Import</>}
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         )}

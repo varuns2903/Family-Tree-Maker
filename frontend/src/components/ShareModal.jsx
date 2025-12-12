@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Copy, X, Trash2, UserCog, Shield, Search, UserPlus } from 'lucide-react';
+import { Copy, X, Trash2, UserCog, Shield, Search, UserPlus, Download, FileText } from 'lucide-react'; // ✅ Added Download, FileText
 import api from '../api/axios';
 import toast from 'react-hot-toast';
 
@@ -8,6 +8,7 @@ const ShareModal = ({ treeId, onClose }) => {
   const [collaborators, setCollaborators] = useState([]);
   const [isOwner, setIsOwner] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false); // ✅ Export Loading State
 
   // --- SEARCH STATE ---
   const [searchQuery, setSearchQuery] = useState("");
@@ -101,6 +102,44 @@ const ShareModal = ({ treeId, onClose }) => {
   const copyToClipboard = () => {
     navigator.clipboard.writeText(shareUrl);
     toast.success("Link copied!");
+  };
+
+  // ✅ NEW: Handle GEDCOM Export
+  const handleExport = async () => {
+    try {
+      setIsExporting(true);
+      // Request file as blob
+      const response = await api.get(`/gedcom/export/${treeId}`, {
+        responseType: 'blob', 
+      });
+
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Extract filename
+      const contentDisposition = response.headers['content-disposition'];
+      let fileName = 'family_tree.ged';
+      if (contentDisposition) {
+        const fileNameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (fileNameMatch && fileNameMatch.length === 2) fileName = fileNameMatch[1];
+      }
+      
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("GEDCOM file downloaded!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to export tree.");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -208,7 +247,38 @@ const ShareModal = ({ treeId, onClose }) => {
               </div>
             </div>
 
-            {/* 3. MANAGE ACCESS SECTION */}
+            {/* ✅ 3. EXPORT SECTION (New) */}
+            <div className={`p-4 sm:p-5 rounded-2xl border transition flex items-center justify-between
+              ${document.documentElement.classList.contains('dark') 
+                ? "bg-slate-800/50 border-slate-700" 
+                : "bg-blue-50 border-blue-100"}`}>
+              
+              <div>
+                <label className={`text-xs font-bold uppercase mb-1 block tracking-wider
+                  ${document.documentElement.classList.contains('dark') ? "text-blue-400" : "text-blue-700"}`}>
+                  Export Data
+                </label>
+                <p className={`text-xs ${document.documentElement.classList.contains('dark') ? "text-slate-400" : "text-slate-600"}`}>
+                  Download standard .GED file
+                </p>
+              </div>
+
+              <button 
+                onClick={handleExport}
+                disabled={isExporting}
+                className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-bold transition disabled:opacity-50"
+              >
+                {isExporting ? (
+                  <span className="animate-pulse">Exporting...</span>
+                ) : (
+                  <>
+                    <Download size={16} /> Export
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* 4. MANAGE ACCESS SECTION */}
             <div>
               <h3 className="font-bold text-lg mb-4 sm:mb-5">Current Members</h3>
               
