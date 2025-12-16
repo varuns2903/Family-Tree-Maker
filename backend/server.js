@@ -17,7 +17,10 @@ const app = express();
 connectDB();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: 'https://family-tree-maker-beige.vercel.app/',
+  credentials: true,
+}));
 app.use(express.json());
 
 // Mount Routes
