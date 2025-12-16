@@ -7,6 +7,15 @@
   color-scheme: dark;
 }
 
+/* Custom Scrollbar Hiding */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
 /* Animations */
 @keyframes slideIn {
   from { transform: translateX(100%); }

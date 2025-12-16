@@ -183,14 +183,12 @@ const updateMember = async (req, res) => {
     const { memberId } = req.params;
     let updates = req.body;
 
-    // Logic: If update payload contains isAlive=true, clear deathDate
+    // Logic 1: Clear death date if marked alive
     if (updates.isAlive === true) {
       updates.deathDate = null;
     }
 
-    // Logic: Handle Linking Parents (mid/fid)
-    // If mid/fid is sent, Mongoose handles it, but we might want to ensure consistency (optional)
-
+    // 1. Update the Current Member
     const updatedMember = await Member.findByIdAndUpdate(memberId, updates, {
       new: true,
       runValidators: true,
@@ -201,16 +199,44 @@ const updateMember = async (req, res) => {
       throw new Error('Member not found');
     }
 
-    // Synchronize Partners if pids changed
+    // Logic 2: Synchronize Partners (pids)
     if (updates.pids && updates.pids.length > 0) {
       await Member.updateMany(
         { _id: { $in: updates.pids } },
         { $addToSet: { pids: memberId } }
       );
     }
-    
-    // Note: To handle removing spouses, you'd need more complex logic (comparing old vs new pids),
-    // but for now, we assume this is additive or handled via specific delete actions.
+
+    // Logic 3: Synchronize Wedding Dates (Bi-directional update) [NEW]
+    if (updates.weddings && Array.isArray(updates.weddings)) {
+        const syncPromises = updates.weddings.map(async (w) => {
+            if (!w.spouseId || !w.date) return;
+
+            const spouse = await Member.findById(w.spouseId);
+            if (!spouse) return;
+
+            // Ensure weddings array exists
+            if (!spouse.weddings) spouse.weddings = [];
+
+            // Find existing record of marriage to CURRENT member
+            const existingRecord = spouse.weddings.find(
+                rec => rec.spouseId.toString() === memberId.toString()
+            );
+
+            if (existingRecord) {
+                existingRecord.date = w.date; // Update date
+            } else {
+                // Add new record
+                spouse.weddings.push({ 
+                    spouseId: memberId, 
+                    date: w.date 
+                });
+            }
+            return spouse.save();
+        });
+
+        await Promise.all(syncPromises);
+    }
 
     res.status(200).json({ id: updatedMember._id, ...updatedMember._doc });
   } catch (error) {
