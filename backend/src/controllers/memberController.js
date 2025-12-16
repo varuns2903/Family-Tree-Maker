@@ -20,7 +20,9 @@ const getMembers = async (req, res) => {
       deathDate: m.deathDate,
       isAlive: m.isAlive,
       contactNo: m.contactNo,
-      ...Object.fromEntries(m.data || new Map()) // Convert Map to object
+      description: m.description, // Added description to response
+      weddings: m.weddings,       // Added weddings to response
+      ...(m.data || {})           // ✅ FIXED: Spread plain object directly
     }));    
 
     res.status(200).json({
@@ -28,6 +30,7 @@ const getMembers = async (req, res) => {
       members: nodes
     });
   } catch (error) {
+    console.log(error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -39,7 +42,7 @@ const addMember = async (req, res) => {
     const { treeId } = req.params;
     const { 
       // Basic Info
-      name, gender, birthDate, deathDate, isAlive, img, contactNo, data,
+      name, gender, birthDate, deathDate, isAlive, img, contactNo, data, description,
       // Relationship Context
       relativeId,     // The ID of the person you clicked "Add Relative" on
       relationType,   // 'child', 'spouse', 'father', 'mother', 'sibling'
@@ -64,6 +67,7 @@ const addMember = async (req, res) => {
       deathDate: isAlive === false ? deathDate : null,
       isAlive: isAlive !== undefined ? isAlive : true,
       contactNo: contactNo || null,
+      description: description || "",
       data: data || {}
     };    
 
@@ -126,7 +130,6 @@ const addMember = async (req, res) => {
     // 4. POST-CREATION UPDATES (Linking back to the existing relative)
     if (relativeId && relationType) {
       const relative = await Member.findById(relativeId);
-      if (!relative) throw new Error('Relative not found');
       
       // Update Spouse (reciprocal link)
       if (relationType === 'spouse') {
@@ -153,10 +156,8 @@ const addMember = async (req, res) => {
       }
     }
 
+    // 5. Link Existing Children (if selected during Add Child/Spouse)
     if (linkChildrenIds && Array.isArray(linkChildrenIds) && linkChildrenIds.length > 0) {
-      
-      // If the new member is Male, he becomes the Father (fid)
-      // If the new member is Female, she becomes the Mother (mid)
       const updatePayload = (newMember.gender === 'male') 
         ? { fid: newMember._id } 
         : { mid: newMember._id };
@@ -170,6 +171,7 @@ const addMember = async (req, res) => {
     res.status(201).json({ id: newMember._id, ...newMember._doc });
 
   } catch (error) {
+    console.error(error);
     res.status(400).json({ message: error.message });
   }
 };
@@ -185,6 +187,9 @@ const updateMember = async (req, res) => {
     if (updates.isAlive === true) {
       updates.deathDate = null;
     }
+
+    // Logic: Handle Linking Parents (mid/fid)
+    // If mid/fid is sent, Mongoose handles it, but we might want to ensure consistency (optional)
 
     const updatedMember = await Member.findByIdAndUpdate(memberId, updates, {
       new: true,
@@ -203,6 +208,9 @@ const updateMember = async (req, res) => {
         { $addToSet: { pids: memberId } }
       );
     }
+    
+    // Note: To handle removing spouses, you'd need more complex logic (comparing old vs new pids),
+    // but for now, we assume this is additive or handled via specific delete actions.
 
     res.status(200).json({ id: updatedMember._id, ...updatedMember._doc });
   } catch (error) {
@@ -243,9 +251,56 @@ const deleteMember = async (req, res) => {
   }
 };
 
+// @desc    Link two existing members manually
+// @route   PUT /api/trees/:treeId/members/link
+const linkMember = async (req, res) => {
+    try {
+        const { memberId, relativeId, relationship } = req.body;
+        
+        const member = await Member.findById(memberId);
+        const relative = await Member.findById(relativeId);
+        
+        if (!member || !relative) throw new Error("Member not found");
+
+        if (relationship === 'child') {
+             
+             const update = member.gender === 'male' 
+                ? { fid: member._id } 
+                : { mid: member._id };
+             
+             await Member.findByIdAndUpdate(relativeId, update);
+
+        } else if (relationship === 'spouse') {
+            await Member.findByIdAndUpdate(memberId, { $addToSet: { pids: relative._id }});
+            await Member.findByIdAndUpdate(relativeId, { $addToSet: { pids: member._id }});
+
+        } else if (relationship === 'father') {
+            await Member.findByIdAndUpdate(memberId, { fid: relative._id });
+            
+            if (member.mid) {
+                await Member.findByIdAndUpdate(member.mid, { $addToSet: { pids: relative._id }});
+                await Member.findByIdAndUpdate(relative._id, { $addToSet: { pids: member.mid }});
+            }
+
+        } else if (relationship === 'mother') {
+            await Member.findByIdAndUpdate(memberId, { mid: relative._id });
+
+            if (member.fid) {
+                await Member.findByIdAndUpdate(member.fid, { $addToSet: { pids: relative._id }});
+                await Member.findByIdAndUpdate(relative._id, { $addToSet: { pids: member.fid }});
+            }
+        }
+
+        res.status(200).json({ message: "Linked successfully" });
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+};
+
 module.exports = {
   getMembers,
   addMember,
   updateMember,
-  deleteMember
+  deleteMember,
+  linkMember
 };

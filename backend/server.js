@@ -12,18 +12,30 @@ const gedcomRoutes = require('./src/routes/gedcomRoutes');
 const { errorHandler } = require('./src/middleware/errorMiddleware');
 
 const app = express();
+app.use(express.json());
 
 // Connect to Mongo
 connectDB();
 
 // Middleware
-app.use(cors({
-  origin: 'https://family-tree-maker-beige.vercel.app',
+const allowedOrigins = process.env.FRONTEND_URL.split(',');
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(null, false);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-}));
-app.use(express.json());
+};
+
+app.use(cors(corsOptions));
 
 // Mount Routes
 app.use('/api/auth', authRoutes);
