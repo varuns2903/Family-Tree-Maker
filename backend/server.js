@@ -18,7 +18,7 @@ connectDB();
 
 // Middleware
 app.use(cors({
-  origin: 'https://family-tree-maker-beige.vercel.app/',
+  origin: 'https://family-tree-maker-beige.vercel.app',
   credentials: true,
 }));
 app.use(express.json());
