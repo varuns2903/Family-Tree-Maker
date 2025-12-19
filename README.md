@@ -61,7 +61,9 @@ npm install
 ```
 Create a .env file in the backend folder:
 ```bash
+NODE_ENV=development
 PORT=5000
+FRONTEND_URL=http://localhost:5173
 MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=your_super_secret_jwt_key
 UPLOADCARE_PUBLIC_KEY=your_public_key
@@ -77,6 +79,10 @@ Open a new terminal, navigate to the client directory:
 ```bash
 cd frontend
 npm install
+```
+Create a .env file in the backend folder:
+```bash
+VITE_API_URL=http://localhost:5000/api
 ```
 Start the React application:
 ```bash

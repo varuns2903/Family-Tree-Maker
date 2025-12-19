@@ -67,7 +67,10 @@ const loginUser = async (req, res) => {
     const user = await User.findOne({ email }).select('+password');
 
     // Check password using model method
-    if (user && (await user.matchPassword(password))) {
+    if (!user) {
+      res.status(401);
+      throw new Error('User does not exist');
+    }else if (user && (await user.matchPassword(password))) {
       res.json({
         _id: user.id,
         name: user.name,
