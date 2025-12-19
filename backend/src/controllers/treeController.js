@@ -84,7 +84,7 @@ const createTree = async (req, res) => {
   }
 };
 
-// @desc    Get a single tree by ID (to verify ownership)
+// @desc    Get a single tree by ID (Owner OR Collaborator)
 // @route   GET /api/trees/:id
 // @access  Private
 const getTreeById = async (req, res) => {
@@ -96,15 +96,26 @@ const getTreeById = async (req, res) => {
       throw new Error('Tree not found');
     }
 
-    // Ensure the logged-in user owns this tree
-    if (tree.ownerId.toString() !== req.user.id) {
-      res.status(401);
-      throw new Error('Not authorized');
+    const userId = req.user.id;
+
+    // 1. Check if Owner
+    const isOwner = tree.ownerId.toString() === userId;
+
+    // 2. Check if Collaborator
+    const isCollaborator = tree.collaborators.some(
+      (c) => c.user.toString() === userId
+    );
+
+    // 3. Allow access if EITHER is true
+    if (!isOwner && !isCollaborator) {
+      res.status(403);
+      throw new Error('Not authorized to view this tree');
     }
 
     res.status(200).json(tree);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    const statusCode = res.statusCode === 200 ? 400 : res.statusCode;
+    res.status(statusCode).json({ message: error.message });
   }
 };
 

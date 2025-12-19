@@ -165,7 +165,7 @@ const ShareModal = ({ treeId, onClose }) => {
         {loading ? (
           <div className="text-center py-8 text-slate-500 animate-pulse">Loading...</div>
         ) : (
-          <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6 sm:space-y-8">
+          <div className="flex-1 overflow-y-auto pr-2 no-scrollbar space-y-6 sm:space-y-8">
             
             {/* 1. DIRECT INVITE SECTION (Only Owner) */}
             {isOwner && (
