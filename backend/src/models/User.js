@@ -18,7 +18,37 @@ const UserSchema = mongoose.Schema(
       type: String,
       required: [true, 'Please add a password'],
       minlength: 6,
-      select: false, // Don't return password by default in queries
+      select: false, // Don't return password by default
+    },
+    
+    // ✅ OTP & Verification System
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    otp: {
+      type: String,
+      select: false, // Security: Don't expose OTP in queries
+    },
+    otpExpires: {
+      type: Date,
+      select: false,
+    },
+
+    // ✅ Forgot Password System
+    resetPasswordToken: {
+      type: String,
+    },
+    resetPasswordExpire: {
+      type: Date,
+    },
+
+    // ✅ OAuth Provider IDs
+    googleId: {
+      type: String,
+    },
+    githubId: {
+      type: String,
     },
   },
   {
@@ -37,7 +67,7 @@ UserSchema.pre('save', async function () {
   this.password = await bcrypt.hash(this.password, salt);
 });
 
-// ✅ Helper Method: Match user entered password to hashed password
+// Helper Method: Match user entered password to hashed password
 UserSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };

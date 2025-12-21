@@ -1,48 +1,65 @@
 import { useState, useEffect } from 'react';
-import { Copy, X, Trash2, UserCog, Shield, Search, UserPlus, Download, FileText } from 'lucide-react'; // ✅ Added Download, FileText
+import { 
+  X, Copy, Check, UserPlus, Mail, Shield, Users, Eye, 
+  Globe, Link as LinkIcon, Trash2, Download, Search
+} from 'lucide-react';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
 
 const ShareModal = ({ treeId, onClose }) => {
-  const [shareUrl, setShareUrl] = useState('');
-  const [collaborators, setCollaborators] = useState([]);
-  const [isOwner, setIsOwner] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [isExporting, setIsExporting] = useState(false); // ✅ Export Loading State
+  const [activeTab, setActiveTab] = useState('invite'); // 'invite' or 'link'
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState('viewer');
+  const [loading, setLoading] = useState(false);
+  const [collaborators, setCollaborators] = useState([]); 
+  const [inviteLink, setInviteLink] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
-  // --- SEARCH STATE ---
+  // Search State
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
 
+  // Theme Detection
+  const isDarkMode = document.documentElement.classList.contains('dark');
+
   useEffect(() => {
-    fetchCollaborators();
+    if (treeId) {
+      fetchCollaborators();
+    }
   }, [treeId]);
 
-  // Debounce Search logic
+  // Search Debounce
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      if (searchQuery.length > 2) {
-        handleSearch();
-      } else {
-        setSearchResults([]);
-      }
+    const delay = setTimeout(() => {
+      if (searchQuery.length > 2) handleSearch();
+      else setSearchResults([]);
     }, 500);
-
-    return () => clearTimeout(delayDebounceFn);
+    return () => clearTimeout(delay);
   }, [searchQuery]);
 
   const fetchCollaborators = async () => {
     try {
       const { data } = await api.get(`/trees/${treeId}/collaborators`);
-      setCollaborators(data.collaborators);
-      setIsOwner(data.isOwner);
-      const baseUrl = window.location.origin;
-      setShareUrl(`${baseUrl}/join/${data.shareToken}`);
+      
+      // 1. Handle Collaborators List
+      if (Array.isArray(data)) {
+        setCollaborators(data);
+      } else if (data.collaborators && Array.isArray(data.collaborators)) {
+        setCollaborators(data.collaborators);
+      } else {
+        setCollaborators([]);
+      }
+
+      // 2. ✅ FIX: Generate Link using shareToken from backend
+      // If shareToken exists, use it. Otherwise fallback to treeId (though backend should provide token)
+      const token = data.shareToken || treeId;
+      setInviteLink(`${window.location.origin}/join/${token}`);
+
     } catch (error) {
-      toast.error("Failed to load sharing details");
-    } finally {
-      setLoading(false);
+      console.error("Error fetching collaborators:", error);
+      setCollaborators([]); 
     }
   };
 
@@ -50,329 +67,311 @@ const ShareModal = ({ treeId, onClose }) => {
     try {
       setIsSearching(true);
       const { data } = await api.get(`/auth/search?query=${searchQuery}`);
-      const existingIds = new Set(collaborators.map(c => c.user._id));
-      const filtered = data.filter(u => !existingIds.has(u._id));
-      setSearchResults(filtered);
+      
+      const currentList = Array.isArray(collaborators) ? collaborators : [];
+      const existingIds = new Set(currentList.map(c => c.user._id));
+      
+      const results = Array.isArray(data) ? data : [];
+      setSearchResults(results.filter(u => !existingIds.has(u._id)));
     } catch (error) {
       console.error(error);
+      setSearchResults([]);
     } finally {
       setIsSearching(false);
     }
   };
 
-  const handleDirectAdd = async (user) => {
+  const handleInvite = async (e) => {
+    e?.preventDefault();
+    if (!email) return;
+    setLoading(true);
     try {
-        await api.put(`/trees/${treeId}/role`, { 
-            userId: user._id, 
-            action: 'add',
-            role: 'viewer'
-        });
-
-        toast.success(`${user.name} added!`);
-        setSearchResults(prev => prev.filter(u => u._id !== user._id));
-        fetchCollaborators();
+      await api.post(`/trees/${treeId}/invite`, { email, role });
+      toast.success("Invitation sent!");
+      setEmail('');
+      setSearchResults([]);
+      setSearchQuery('');
+      fetchCollaborators();
     } catch (error) {
-        toast.error("Failed to add user");
+      toast.error(error.response?.data?.message || "Failed to invite");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleRemoveUser = async (userId) => {
-    if (!window.confirm("Remove this user?")) return;
+  const handleDirectAdd = (user) => {
+    setEmail(user.email);
+    setSearchResults([]);
+    setSearchQuery('');
+  };
+
+  const handleRemove = async (userId) => {
+    if (!window.confirm("Remove this collaborator?")) return;
     try {
-      await api.put(`/trees/${treeId}/role`, { userId, action: 'remove' });
+      await api.delete(`/trees/${treeId}/collaborators/${userId}`);
       setCollaborators(prev => prev.filter(c => c.user._id !== userId));
-      toast.success("User removed");
-    } catch {
-      toast.error("Failed to remove user");
-    }
-  };
-
-  const handleRoleChange = async (userId, newRole) => {
-    try {
-      await api.put(`/trees/${treeId}/role`, { userId, action: 'update', role: newRole });
-      setCollaborators(prev => prev.map(c => 
-        c.user._id === userId ? { ...c, role: newRole } : c
-      ));
-      toast.success("Role updated");
-    } catch {
-      toast.error("Failed to update role");
+      toast.success("Removed successfully");
+    } catch (error) {
+      toast.error("Failed to remove");
+      fetchCollaborators(); 
     }
   };
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(shareUrl);
+    navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
     toast.success("Link copied!");
   };
 
-  // ✅ NEW: Handle GEDCOM Export
   const handleExport = async () => {
     try {
       setIsExporting(true);
-      // Request file as blob
-      const response = await api.get(`/gedcom/export/${treeId}`, {
-        responseType: 'blob', 
-      });
-
-      // Create download link
+      const response = await api.get(`/gedcom/export/${treeId}`, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
       
-      // Extract filename
       const contentDisposition = response.headers['content-disposition'];
       let fileName = 'family_tree.ged';
       if (contentDisposition) {
-        const fileNameMatch = contentDisposition.match(/filename="?(.+)"?/);
-        if (fileNameMatch && fileNameMatch.length === 2) fileName = fileNameMatch[1];
+        const match = contentDisposition.match(/filename="?(.+)"?/);
+        if (match && match.length === 2) fileName = match[1];
       }
       
       link.setAttribute('download', fileName);
       document.body.appendChild(link);
       link.click();
-      
-      // Cleanup
       link.remove();
-      window.URL.revokeObjectURL(url);
       toast.success("GEDCOM file downloaded!");
     } catch (error) {
-      console.error(error);
-      toast.error("Failed to export tree.");
+      toast.error("Export failed");
     } finally {
       setIsExporting(false);
     }
   };
 
+  // --- STYLES ---
+  const inputClass = `w-full p-3 rounded-xl border outline-none focus:ring-2 focus:ring-green-500 transition-all ${
+    isDarkMode 
+      ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500" 
+      : "bg-white border-gray-200 text-gray-900 placeholder-gray-400"
+  }`;
+
+  const labelClass = `text-xs font-bold uppercase opacity-60 mb-1.5 block ml-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`;
+
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] backdrop-blur-sm p-4" onClick={onClose}>
+    <div 
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] backdrop-blur-sm p-4" 
+      onClick={onClose}
+    >
       <div 
-        // ✅ Responsive Width (w-[95%]), Padding (p-5 vs p-8), and Height
-        className={`p-5 sm:p-8 rounded-2xl sm:rounded-3xl w-[95%] sm:w-full max-w-lg shadow-2xl h-[75vh] sm:h-[80vh] flex flex-col transform transition-all scale-100
-          ${document.documentElement.classList.contains('dark') 
-            ? "bg-slate-900 text-slate-100 border border-slate-800" 
-            : "bg-white text-slate-800"}`}
-        onClick={e => e.stopPropagation()}
+        className={`w-[95%] sm:w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden transform transition-all scale-100 flex flex-col max-h-[85vh]
+          ${isDarkMode ? 'bg-slate-900 text-slate-100 border border-slate-800' : 'bg-white text-slate-800'}`}
+        onClick={(e) => e.stopPropagation()}
       >
+        
         {/* Header */}
-        <div className="flex justify-between items-center mb-6 sm:mb-8">
-          <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
-            <UserCog className="text-green-600 dark:text-green-400" /> Share & Access
-          </h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition">
-            <X size={24} className="text-slate-500 dark:text-slate-400" />
+        <div className={`p-5 sm:p-6 border-b flex-shrink-0 ${isDarkMode ? 'border-slate-800' : 'border-gray-100'} flex justify-between items-center`}>
+          <div>
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <UserPlus size={24} className="text-green-500"/> Share Tree
+            </h2>
+            <p className={`text-sm mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+              Invite family to view or edit
+            </p>
+          </div>
+          <button onClick={onClose} className={`p-2 rounded-full transition ${isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-gray-100 text-gray-500'}`}>
+            <X size={20} />
           </button>
         </div>
 
-        {loading ? (
-          <div className="text-center py-8 text-slate-500 animate-pulse">Loading...</div>
-        ) : (
-          <div className="flex-1 overflow-y-auto pr-2 no-scrollbar space-y-6 sm:space-y-8">
-            
-            {/* 1. DIRECT INVITE SECTION (Only Owner) */}
-            {isOwner && (
-                <div className={`p-4 sm:p-5 rounded-2xl border transition
-                  ${document.documentElement.classList.contains('dark') 
-                    ? "bg-slate-800/50 border-slate-700" 
-                    : "bg-green-50/50 border-green-100"}`}>
-                    <label className={`text-xs font-bold uppercase mb-2 sm:mb-3 block tracking-wider
-                      ${document.documentElement.classList.contains('dark') ? "text-green-400" : "text-green-700"}`}>
-                        Direct Invite
-                    </label>
-                    <div className="relative">
-                        <input 
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Search by name or email..."
-                            className={`w-full pl-10 pr-4 py-2.5 sm:py-3 rounded-xl border outline-none focus:ring-2 focus:ring-green-500 transition text-sm sm:text-base
-                              ${document.documentElement.classList.contains('dark') 
-                                ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500" 
-                                : "bg-white border-gray-200 placeholder-slate-400"}`}
-                        />
-                        <Search className={`absolute left-3 top-3 ${document.documentElement.classList.contains('dark') ? "text-slate-500" : "text-slate-400"}`} size={18} />
-                    </div>
+        {/* Tabs */}
+        <div className={`flex p-2 gap-2 border-b flex-shrink-0 ${isDarkMode ? 'border-slate-800' : 'border-gray-100'}`}>
+          <button 
+            onClick={() => setActiveTab('invite')}
+            className={`flex-1 py-2 text-sm font-bold rounded-xl transition flex items-center justify-center gap-2 ${activeTab === 'invite' 
+              ? (isDarkMode ? 'bg-slate-800 text-white shadow-sm' : 'bg-green-50 text-green-700 shadow-sm') 
+              : 'opacity-60 hover:opacity-100'}`}
+          >
+            <Mail size={16} /> Email Invite
+          </button>
+          <button 
+            onClick={() => setActiveTab('link')}
+            className={`flex-1 py-2 text-sm font-bold rounded-xl transition flex items-center justify-center gap-2 ${activeTab === 'link' 
+              ? (isDarkMode ? 'bg-slate-800 text-white shadow-sm' : 'bg-blue-50 text-blue-700 shadow-sm') 
+              : 'opacity-60 hover:opacity-100'}`}
+          >
+            <LinkIcon size={16} /> Copy Link
+          </button>
+        </div>
 
-                    {/* Search Results */}
-                    {searchResults.length > 0 && (
-                        <div className={`mt-3 rounded-xl shadow-lg border overflow-hidden
-                          ${document.documentElement.classList.contains('dark') ? "bg-slate-800 border-slate-700" : "bg-white border-gray-100"}`}>
-                            {searchResults.map(user => (
-                                <div key={user._id} className={`flex justify-between items-center p-3 transition
-                                  ${document.documentElement.classList.contains('dark') ? "hover:bg-slate-750" : "hover:bg-slate-50"}`}>
-                                    <div className="overflow-hidden">
-                                        <p className="text-sm font-bold truncate">{user.name}</p>
-                                        <p className={`text-xs truncate ${document.documentElement.classList.contains('dark') ? "text-slate-400" : "text-slate-500"}`}>{user.email}</p>
-                                    </div>
-                                    <button 
-                                        onClick={() => handleDirectAdd(user)}
-                                        className="bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition flex items-center gap-1 text-xs font-bold shadow-sm whitespace-nowrap">
-                                        <UserPlus size={14} /> Add
-                                    </button>
-                                </div>
-                            ))}
+        {/* Content */}
+        <div className="p-5 sm:p-6 overflow-y-auto custom-scrollbar flex-1">
+          
+          {activeTab === 'invite' ? (
+            <div className="space-y-6">
+              
+              {/* --- SEARCH / EMAIL FORM --- */}
+              <div className="space-y-4">
+                <div className="relative">
+                  <label className={labelClass}>Search Users</label>
+                  <div className="relative">
+                    <input 
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Name or Email..."
+                      className={`${inputClass} pl-10`}
+                    />
+                    <Search className={`absolute left-3 top-3.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} size={18} />
+                  </div>
+                  
+                  {/* Search Dropdown */}
+                  {searchResults.length > 0 && (
+                    <div className={`absolute top-full left-0 right-0 mt-2 rounded-xl shadow-xl z-10 border max-h-40 overflow-y-auto
+                      ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'}`}>
+                      {searchResults.map(user => (
+                        <div key={user._id} 
+                           onClick={() => handleDirectAdd(user)}
+                           className={`p-3 flex justify-between items-center cursor-pointer border-b last:border-0 
+                             ${isDarkMode ? 'hover:bg-slate-700 border-slate-700' : 'hover:bg-gray-50 border-gray-100'}`}>
+                           <div>
+                             <p className="font-bold text-sm">{user.name}</p>
+                             <p className="text-xs opacity-60">{user.email}</p>
+                           </div>
+                           <UserPlus size={16} className="text-green-500"/>
                         </div>
-                    )}
-                    {searchQuery.length > 2 && searchResults.length === 0 && !isSearching && (
-                        <p className={`text-xs mt-2 text-center ${document.documentElement.classList.contains('dark') ? "text-slate-500" : "text-slate-400"}`}>No users found.</p>
-                    )}
+                      ))}
+                    </div>
+                  )}
                 </div>
-            )}
 
-            {/* 2. COPY LINK SECTION */}
-            <div className={`p-4 sm:p-5 rounded-2xl border transition
-              ${document.documentElement.classList.contains('dark') 
-                ? "bg-slate-800/50 border-slate-700" 
-                : "bg-white border-gray-200"}`}>
-              <label className={`text-xs font-bold uppercase mb-2 sm:mb-3 block tracking-wider
-                ${document.documentElement.classList.contains('dark') ? "text-slate-400" : "text-slate-500"}`}>
-                Public Link
-              </label>
-              <div className="flex gap-2">
-                <input 
-                  readOnly 
-                  value={shareUrl} 
-                  className={`w-full rounded-xl px-3 py-2.5 sm:py-3 text-sm focus:outline-none border transition
-                    ${document.documentElement.classList.contains('dark') 
-                      ? "bg-slate-800 border-slate-700 text-slate-300" 
-                      : "bg-slate-50 border-gray-200 text-slate-600"}`}
-                />
-                <button 
-                  onClick={copyToClipboard}
-                  className={`p-2.5 sm:p-3 rounded-xl transition flex-shrink-0 border
-                    ${document.documentElement.classList.contains('dark') 
-                      ? "bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300" 
-                      : "bg-slate-100 hover:bg-slate-200 border-gray-200 text-slate-600"}`}
-                  title="Copy Link"
-                >
-                  <Copy size={20} />
-                </button>
-              </div>
-            </div>
-
-            {/* ✅ 3. EXPORT SECTION (New) */}
-            <div className={`p-4 sm:p-5 rounded-2xl border transition flex items-center justify-between
-              ${document.documentElement.classList.contains('dark') 
-                ? "bg-slate-800/50 border-slate-700" 
-                : "bg-blue-50 border-blue-100"}`}>
-              
-              <div>
-                <label className={`text-xs font-bold uppercase mb-1 block tracking-wider
-                  ${document.documentElement.classList.contains('dark') ? "text-blue-400" : "text-blue-700"}`}>
-                  Export Data
-                </label>
-                <p className={`text-xs ${document.documentElement.classList.contains('dark') ? "text-slate-400" : "text-slate-600"}`}>
-                  Download standard .GED file
-                </p>
-              </div>
-
-              <button 
-                onClick={handleExport}
-                disabled={isExporting}
-                className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-bold transition disabled:opacity-50"
-              >
-                {isExporting ? (
-                  <span className="animate-pulse">Exporting...</span>
-                ) : (
-                  <>
-                    <Download size={16} /> Export
-                  </>
-                )}
-              </button>
-            </div>
-
-            {/* 4. MANAGE ACCESS SECTION */}
-            <div>
-              <h3 className="font-bold text-lg mb-4 sm:mb-5">Current Members</h3>
-              
-              {/* Owner Badge */}
-              <div className={`flex items-center justify-between p-3 sm:p-4 mb-3 rounded-2xl border transition
-                ${document.documentElement.classList.contains('dark') 
-                  ? "bg-green-900/20 border-green-800/50" 
-                  : "bg-green-50 border-green-100"}`}>
-                <div className="flex items-center gap-3 sm:gap-4">
-                  <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center shadow-sm
-                    ${document.documentElement.classList.contains('dark') ? "bg-green-800 text-green-200" : "bg-green-100 text-green-600"}`}>
-                    <Shield size={20} className="sm:w-6 sm:h-6" />
-                  </div>
+                <form onSubmit={handleInvite} className="space-y-4 pt-2 border-t border-dashed border-gray-200 dark:border-slate-700">
                   <div>
-                    <p className="font-bold text-sm">Tree Owner</p>
-                    <p className={`text-xs ${document.documentElement.classList.contains('dark') ? "text-slate-400" : "text-slate-500"}`}>Admin privileges</p>
+                    <label className={labelClass}>Email Address</label>
+                    <input 
+                      type="email" 
+                      placeholder="relative@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className={inputClass}
+                      required
+                    />
                   </div>
-                </div>
-                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider border
-                  ${document.documentElement.classList.contains('dark') ? "bg-green-900/30 text-green-400 border-green-800" : "bg-green-100 text-green-700 border-green-200"}`}>
-                  Owner
-                </span>
+
+                  <div>
+                    <label className={labelClass}>Access Level</label>
+                    <div className={`grid grid-cols-2 gap-3 p-1 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-800/50' : 'border-gray-200 bg-gray-50'}`}>
+                      <label className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition ${role === 'viewer' ? (isDarkMode ? 'bg-slate-700' : 'bg-white shadow-sm') : 'opacity-50'}`}>
+                        <input type="radio" name="role" value="viewer" checked={role === 'viewer'} onChange={() => setRole('viewer')} className="hidden" />
+                        <div className={`p-1.5 rounded-md ${isDarkMode ? 'bg-slate-600' : 'bg-gray-100'}`}><Eye size={16}/></div>
+                        <span className="text-sm font-bold">Viewer</span>
+                      </label>
+                      
+                      <label className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition ${role === 'editor' ? (isDarkMode ? 'bg-slate-700' : 'bg-white shadow-sm') : 'opacity-50'}`}>
+                        <input type="radio" name="role" value="editor" checked={role === 'editor'} onChange={() => setRole('editor')} className="hidden" />
+                        <div className={`p-1.5 rounded-md ${isDarkMode ? 'bg-blue-900/50 text-blue-400' : 'bg-blue-100 text-blue-600'}`}><Users size={16}/></div>
+                        <span className="text-sm font-bold">Editor</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <button 
+                    disabled={loading}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition shadow-lg shadow-green-500/20 active:scale-95"
+                  >
+                    {loading ? 'Sending...' : <>Send Invite <Mail size={18} /></>}
+                  </button>
+                </form>
               </div>
 
-              <div className="space-y-3">
-                {collaborators.length === 0 && (
-                  <p className={`text-center text-sm italic py-6 ${document.documentElement.classList.contains('dark') ? "text-slate-500" : "text-slate-400"}`}>No other members yet.</p>
-                )}
-
-                {collaborators.map((collab) => (
-                  <div key={collab.user._id} className={`flex items-center justify-between p-3 sm:p-4 rounded-2xl border transition
-                    ${document.documentElement.classList.contains('dark') 
-                      ? "bg-slate-800/40 border-slate-700 hover:bg-slate-800/70" 
-                      : "bg-white border-gray-200 hover:bg-slate-50/80"}`}>
-                    
-                    {/* User Info */}
-                    <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
-                      <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-xs sm:text-sm shadow-sm
-                        ${document.documentElement.classList.contains('dark') ? "bg-slate-700 text-slate-300" : "bg-slate-100 text-slate-600"}`}>
-                        {collab.user.name.charAt(0).toUpperCase()}
+              {/* Collaborators List */}
+              <div className={`pt-6 border-t ${isDarkMode ? 'border-slate-800' : 'border-gray-100'}`}>
+                <h3 className={`text-xs font-bold uppercase tracking-wider mb-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Current Members</h3>
+                <div className="space-y-3">
+                  {(!collaborators || collaborators.length === 0) && (
+                    <p className="text-sm opacity-50 italic text-center">No collaborators yet.</p>
+                  )}
+                  
+                  {Array.isArray(collaborators) && collaborators.map((c) => (
+                    <div key={c.user._id} className={`flex items-center justify-between p-3 rounded-xl border ${isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-gray-50 border-gray-100'}`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isDarkMode ? 'bg-slate-700' : 'bg-white border'}`}>
+                           {c.user.name.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold leading-none">{c.user.name}</p>
+                          <p className="text-xs opacity-60 mt-1 flex items-center gap-1">
+                            {c.role === 'editor' ? <Users size={10} className="text-blue-500"/> : <Eye size={10}/>} {c.role}
+                          </p>
+                        </div>
                       </div>
-                      <div className="overflow-hidden">
-                        <p className="font-bold text-sm truncate w-[100px] sm:w-[140px]">
-                          {collab.user.name}
-                        </p>
-                        <p className={`text-xs truncate w-[100px] sm:w-[140px] ${document.documentElement.classList.contains('dark') ? "text-slate-400" : "text-slate-500"}`}>
-                          {collab.user.email}
-                        </p>
-                      </div>
+                      <button 
+                        onClick={() => handleRemove(c.user._id)}
+                        className={`p-2 rounded-lg transition ${isDarkMode ? 'hover:bg-red-900/30 text-slate-500 hover:text-red-400' : 'hover:bg-red-50 text-gray-400 hover:text-red-600'}`}
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
-
-                    {/* Actions / Role */}
-                    <div className="flex items-center gap-2">
-                      {isOwner ? (
-                        <>
-                          <select 
-                            value={collab.role}
-                            onChange={(e) => handleRoleChange(collab.user._id, e.target.value)}
-                            className={`text-xs rounded-lg px-2 py-1.5 font-medium border cursor-pointer outline-none transition
-                              ${document.documentElement.classList.contains('dark') 
-                                ? "bg-slate-800 border-slate-600 text-slate-300 focus:border-slate-500" 
-                                : "bg-white border-gray-300 text-slate-600 focus:border-blue-400"}`}
-                          >
-                            <option value="viewer">Viewer</option>
-                            <option value="editor">Editor</option>
-                          </select>
-
-                          <button 
-                            onClick={() => handleRemoveUser(collab.user._id)}
-                            className={`p-1.5 sm:p-2 rounded-lg transition border
-                              ${document.documentElement.classList.contains('dark') 
-                                ? "text-red-400 hover:bg-red-900/20 border-transparent hover:border-red-900/50" 
-                                : "text-red-500 hover:bg-red-50 border-transparent hover:border-red-100"}`}
-                            title="Remove User"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </>
-                      ) : (
-                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider border
-                          ${collab.role === 'editor' 
-                            ? (document.documentElement.classList.contains('dark') ? 'bg-blue-900/30 text-blue-400 border-blue-800' : 'bg-blue-100 text-blue-700 border-blue-200') 
-                            : (document.documentElement.classList.contains('dark') ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-100 text-slate-600 border-slate-200')}`}>
-                          {collab.role}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="text-center py-4">
+                 <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${isDarkMode ? 'bg-blue-900/20 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
+                    <Globe size={32} />
+                 </div>
+                 <h3 className="text-lg font-bold mb-2">Public Link</h3>
+                 <p className={`text-sm max-w-xs mx-auto ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                   Anyone with this link can request to join this tree.
+                 </p>
+              </div>
 
-          </div>
-        )}
+              <div>
+                <label className={labelClass}>Link URL</label>
+                <div className="flex gap-2">
+                  <input 
+                    readOnly 
+                    value={inviteLink} 
+                    className={`${inputClass} text-opacity-70`}
+                  />
+                  <button 
+                    onClick={copyToClipboard}
+                    className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-xl transition shadow-lg shadow-blue-500/20 active:scale-95"
+                  >
+                    {copied ? <Check size={20} /> : <Copy size={20} />}
+                  </button>
+                </div>
+              </div>
+              
+              <div className={`p-4 rounded-xl text-xs leading-relaxed border flex gap-3 ${isDarkMode ? 'bg-amber-900/10 border-amber-900/30 text-amber-400' : 'bg-amber-50 border-amber-100 text-amber-700'}`}>
+                 <Shield size={24} className="shrink-0" />
+                 <p>For security, users joining via link will be added as <b>Viewers</b> by default. You can upgrade them to Editors later.</p>
+              </div>
+
+              {/* EXPORT BUTTON */}
+              <div className={`pt-6 border-t ${isDarkMode ? 'border-slate-800' : 'border-gray-100'}`}>
+                <label className={labelClass}>Backup Data</label>
+                <div className={`p-4 rounded-xl border flex items-center justify-between ${isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
+                    <div>
+                        <p className="font-bold text-sm">Export GEDCOM</p>
+                        <p className="text-xs opacity-60">Standard genealogy file format</p>
+                    </div>
+                    <button 
+                        onClick={handleExport}
+                        disabled={isExporting}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition disabled:opacity-50"
+                    >
+                        {isExporting ? <span className="animate-pulse">Saving...</span> : <><Download size={16} /> Download</>}
+                    </button>
+                </div>
+              </div>
+
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
