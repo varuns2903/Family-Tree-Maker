@@ -1,4 +1,0 @@
-1) Viewer can only send public link. Viewer cannot send invite to users.
-2) Viewer can only view tree. Open sidebar with view mode only.
-3) Add option to request edit access
-4) Add end point for inviting user to a tree with particular role

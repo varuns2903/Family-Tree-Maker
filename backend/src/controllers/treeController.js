@@ -1,26 +1,34 @@
 const Tree = require('../models/Tree');
 const Member = require('../models/Member'); // Needed for cascade delete
+const User = require('../models/User');
 
-// @desc    Get all trees (Owned + Shared)
+// @desc    Get all trees (Owned + Shared & Accepted)
 // @route   GET /api/trees
 // @access  Private
 const getTrees = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.id.toString();
 
-    // 1. Query: Find trees where user is Owner OR Collaborator
+    // ✅ FIX: Only find shared trees where 'accepted' is TRUE
     let trees = await Tree.find({
       $or: [
-        { ownerId: userId },
-        { 'collaborators.user': userId }
+        { ownerId: userId }, // User is owner
+        { 
+          collaborators: { 
+            $elemMatch: { 
+              user: userId, 
+              accepted: true // <--- IMPORTANT: Must be accepted
+            } 
+          } 
+        }
       ]
     })
-      .populate('ownerId', 'name email') // Get owner details for shared trees
+      .populate('ownerId', 'name email')
       .populate('collaborators.user', 'name email')
       .sort({ updatedAt: -1 })
       .lean();
 
-    // 2. Member Counts Logic (Same as before)
+    // 2. Member Counts Logic
     const treeIds = trees.map(t => t._id);
     const counts = await Member.aggregate([
       { $match: { treeId: { $in: treeIds } } },
@@ -31,31 +39,36 @@ const getTrees = async (req, res) => {
 
     // 3. Process Trees to add 'currentUserRole'
     trees = trees.map(tree => {
-      let role = 'viewer'; // Default fallback
+      let role = 'viewer';
 
-      // Check if Owner
-      // Note: ownerId might be an object due to populate, or string
-      const ownerIdStr = tree.ownerId._id ? tree.ownerId._id.toString() : tree.ownerId.toString();
+      // Handle Null Owner Safety Check
+      const ownerIdStr = tree.ownerId && tree.ownerId._id 
+        ? tree.ownerId._id.toString() 
+        : (tree.ownerId ? tree.ownerId.toString() : null);
       
       if (ownerIdStr === userId) {
         role = 'owner';
       } else {
-        // Check Collaborator List
-        const collab = tree.collaborators.find(c => 
-          (c.user._id ? c.user._id.toString() : c.user.toString()) === userId
-        );
+        // Handle Null Collaborator Safety Check
+        const collab = tree.collaborators.find(c => {
+          if (!c.user) return false;
+          const collabId = c.user._id ? c.user._id.toString() : c.user.toString();
+          return collabId === userId;
+        });
+        
         if (collab) role = collab.role;
       }
 
       return {
         ...tree,
         membersCount: countMap[tree._id] || 0,
-        currentUserRole: role // <--- FIELD FOR FRONTEND
+        currentUserRole: role
       };
     });
 
     res.status(200).json(trees);
   } catch (error) {
+    console.error("Error in getTrees:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -222,7 +235,6 @@ const joinTree = async (req, res) => {
     // Add as Viewer
     tree.collaborators.push({ user: userId, role: 'viewer' });
     await tree.save();
-
     res.status(200).json({ message: 'Joined tree successfully', treeId: tree._id });
   } catch (error) {
     console.log(error)
@@ -301,6 +313,98 @@ const manageRole = async (req, res) => {
   }
 };
 
+// @desc    Invite user to tree (Email or ID)
+// @route   POST /api/trees/:id/invite
+// @access  Private (Owner/Editor only)
+const inviteUser = async (req, res) => {
+  try {
+    const { email, role } = req.body;     
+    const tree = await Tree.findById(req.params.id);
+
+    if (!tree) {
+      res.status(404);
+      throw new Error('Tree not found');
+    }
+
+    // --- FIX: Manually determine current user's role ---
+    let currentUserRole = 'viewer'; // Default
+    
+    if (tree.ownerId.toString() === req.user._id.toString()) {
+      currentUserRole = 'owner';
+    } else {
+      const collaborator = tree.collaborators.find(c => c.user.toString() === req.user._id.toString());
+      if (collaborator) {
+        currentUserRole = collaborator.role;
+      }
+    }
+    
+    // Check permissions
+    if (currentUserRole !== 'owner' && currentUserRole !== 'editor') {
+      res.status(403);
+      throw new Error('Not authorized to invite users');
+    }
+
+    // Find the user being invited
+    const targetUser = await User.findOne({ email });
+    if (!targetUser) {
+      res.status(404);
+      throw new Error('User not found with that email');
+    }
+
+    // Check if already a collaborator
+    const existing = tree.collaborators.find(c => c.user.toString() === targetUser._id.toString());
+    if (existing) {
+      res.status(400);
+      throw new Error('User is already a member of this tree');
+    }
+
+    // Add to collaborators
+    tree.collaborators.push({
+      user: targetUser._id,
+      role: role || 'viewer',
+      accepted: false 
+    });
+
+    await tree.save();
+
+    res.status(200).json({ message: `Invitation sent to ${targetUser.name}` });
+
+  } catch (error) {
+    console.log(error);
+    const statusCode = res.statusCode && res.statusCode !== 200 ? res.statusCode : 500;
+    res.status(statusCode).json({ message: error.message });
+  }
+};
+
+const respondToInvite = async (req, res) => {
+  try {
+    const { accept } = req.body;
+    const tree = await Tree.findById(req.params.id);
+
+    if (!tree) throw new Error("Tree not found");
+
+    const collabIndex = tree.collaborators.findIndex(c => c.user.toString() === req.user._id.toString());
+
+    if (collabIndex === -1) {
+      res.status(404);
+      throw new Error("Invitation not found");
+    }
+
+    if (accept) {
+      tree.collaborators[collabIndex].accepted = true;
+    } else {
+      // Remove from collaborators array if declined
+      tree.collaborators.splice(collabIndex, 1);
+    }
+
+    await tree.save();
+    res.json({ message: accept ? "Joined tree successfully" : "Invitation declined" });
+
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getTrees,
   createTree,
@@ -309,5 +413,7 @@ module.exports = {
   deleteTree,
   joinTree,
   getCollaborators,
-  manageRole
+  manageRole,
+  inviteUser,
+  respondToInvite
 };

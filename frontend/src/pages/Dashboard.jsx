@@ -4,10 +4,10 @@ import api from "../api/axios";
 import { getInitialTheme, toggleTheme } from "../utils/theme";
 import {
   Plus, Trash2, TreePine, Moon, Sun, Bell, Check, X,
-  Shield, Users, Eye, Share2, AlertTriangle, User, UploadCloud, FileText
+  Shield, Users, Eye, Share2, AlertTriangle, User, UploadCloud, FileText, Mail, UserPlus
 } from "lucide-react";
 import ShareModal from "../components/ShareModal";
-import ProfileModal from "../components/ProfileModal"; // ✅ Import ProfileModal
+import ProfileModal from "../components/ProfileModal";
 import toast from "react-hot-toast";
 
 const Dashboard = () => {
@@ -17,12 +17,16 @@ const Dashboard = () => {
   const [search, setSearch] = useState("");
   const [sortMode, setSortMode] = useState("latest");
   const [user, setUser] = useState(null);
+  const [invitations, setInvitations] = useState([]);
 
   // --- Modal States ---
   const [showModal, setShowModal] = useState(false);
   const [showNotifModal, setShowNotifModal] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false); // ✅ Switched from Menu to Modal
-  const [sharingTreeId, setSharingTreeId] = useState(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  
+  // Share Modal State
+  const [sharingData, setSharingData] = useState(null); 
+  
   const [deleteTargetTree, setDeleteTargetTree] = useState(null);
 
   // --- Tree Editing States ---
@@ -33,7 +37,7 @@ const Dashboard = () => {
   const [editTreeDescription, setEditTreeDescription] = useState("");
 
   const [importFile, setImportFile] = useState(null);
-  const [modalTab, setModalTab] = useState('create'); // 'create' or 'import'
+  const [modalTab, setModalTab] = useState('create'); 
   const [isImporting, setIsImporting] = useState(false);
 
   const navigate = useNavigate();
@@ -41,6 +45,7 @@ const Dashboard = () => {
   useEffect(() => {
     fetchUser();
     fetchTrees();
+    fetchInvitations();
   }, []);
 
   useEffect(() => {
@@ -52,11 +57,28 @@ const Dashboard = () => {
     filterAndSortTrees();
   }, [trees, search, sortMode]);
 
-  const pendingRequests = trees.flatMap(tree =>
-    (tree.collaborators || [])
+  // Filter logic: Only show requests if the CURRENT user is an Owner or Editor
+  const pendingRequests = trees.flatMap(tree => {
+    if (tree.currentUserRole !== 'owner' && tree.currentUserRole !== 'editor') {
+      return [];
+    }
+    return (tree.collaborators || [])
       .filter(c => c.requestedEdit)
-      .map(c => ({ ...c, treeId: tree._id, treeName: tree.name }))
-  );
+      .map(c => ({ ...c, treeId: tree._id, treeName: tree.name }));
+  });
+
+  // Calculate Total Notifications
+  const totalNotifications = pendingRequests.length + invitations.length;
+
+  // ✅ AUTO-CLOSE NOTIFICATION MODAL
+  useEffect(() => {
+    if (showNotifModal && totalNotifications === 0) {
+      const timer = setTimeout(() => {
+        setShowNotifModal(false);
+      }, 400); // 400ms delay for smooth UX
+      return () => clearTimeout(timer);
+    }
+  }, [showNotifModal, totalNotifications]);
 
   const fetchUser = async () => {
     try {
@@ -71,6 +93,26 @@ const Dashboard = () => {
       setTrees(data);
     } catch {
       toast.error("Failed to load trees");
+    }
+  };
+
+  const fetchInvitations = async () => {
+    try {
+      const { data } = await api.get("/auth/invitations"); 
+      setInvitations(data);
+    } catch (error) {
+      console.error("Failed to fetch invitations");
+    }
+  };
+
+  const handleRespondInvite = async (treeId, accept) => {
+    try {
+      await api.put(`/trees/${treeId}/invite/respond`, { accept });
+      toast.success(accept ? "Joined Tree!" : "Invitation Declined");
+      fetchInvitations(); 
+      if (accept) fetchTrees(); 
+    } catch (error) {
+      toast.error("Action failed");
     }
   };
 
@@ -152,7 +194,6 @@ const Dashboard = () => {
       });
       toast.success(approve ? "Access Granted" : "Request Denied");
       fetchTrees();
-      if (pendingRequests.length === 1) setShowNotifModal(false);
     } catch (error) {
       toast.error("Action failed");
     }
@@ -209,15 +250,12 @@ const Dashboard = () => {
   };
 
   return (
-    <div className={`min-h-screen p-4 sm:p-8 transition-colors ${isDarkMode ? "bg-gray-900 text-white" : "bg-gradient-to-b from-green-50 to-gray-100 text-gray-900"
-      }`}>
+    <div className={`min-h-screen p-4 sm:p-8 transition-colors ${isDarkMode ? "bg-gray-900 text-white" : "bg-gradient-to-b from-green-50 to-gray-100 text-gray-900"}`}>
 
       <div className="max-w-7xl mx-auto">
 
-        {/* --- HEADER SECTION --- */}
+        {/* --- HEADER --- */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 sm:mb-10 gap-6 md:gap-0">
-
-          {/* Title Area */}
           <div className="text-center md:text-left w-full md:w-auto">
             <div className="flex items-center justify-center md:justify-start gap-2">
               <TreePine className="w-8 h-8 sm:w-10 sm:h-10 text-green-500" />
@@ -228,70 +266,57 @@ const Dashboard = () => {
             </p>
           </div>
 
-          {/* Controls Area */}
           <div className="flex w-full md:w-auto justify-end items-center gap-2 sm:gap-3">
-
-            {/* 1. New Tree Button - Placed first in the group */}
             <button
               onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-3 py-2 sm:px-5 sm:py-3 rounded-xl shadow-md transition text-sm sm:text-base font-medium"
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-3 py-2 sm:px-5 sm:py-3 rounded-xl shadow-md transition text-sm sm:text-base font-medium cursor-pointer"
             >
               <Plus size={20} />
-              {/* Responsive Text: 'New' on mobile, 'New Tree' on larger screens */}
               <span className="hidden sm:inline">New Tree</span>
               <span className="sm:hidden">New</span>
             </button>
 
-            {/* 2. Notification Bell */}
             <button
               onClick={() => setShowNotifModal(true)}
-              className={`relative p-3 rounded-xl shadow-md transition ${isDarkMode ? "bg-gray-700 text-white" : "bg-white text-gray-700"
-                }`}
+              className={`relative p-3 rounded-xl shadow-md transition cursor-pointer ${isDarkMode ? "bg-gray-700 text-white" : "bg-white text-gray-700"}`}
             >
               <Bell size={20} />
-              {pendingRequests.length > 0 && (
+              {totalNotifications > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full animate-bounce">
-                  {pendingRequests.length}
+                  {totalNotifications}
                 </span>
               )}
             </button>
 
-            {/* 3. Theme Toggle */}
             <button
               onClick={() => toggleTheme(isDarkMode, setIsDarkMode)}
-              className={`p-3 rounded-xl shadow-md transition ${isDarkMode ? "bg-gray-700 text-white" : "bg-white text-gray-700"
-                }`}
+              className={`p-3 rounded-xl shadow-md transition cursor-pointer ${isDarkMode ? "bg-gray-700 text-white" : "bg-white text-gray-700"}`}
             >
               {isDarkMode ? <Moon size={18} /> : <Sun size={18} className="text-yellow-500" />}
             </button>
 
-            {/* 4. Profile Menu (Opens Modal) */}
             <button
               onClick={() => setShowProfileModal(true)}
-              className={`p-3 rounded-xl shadow-md transition ${isDarkMode ? "bg-gray-700 text-white" : "bg-white text-gray-700"
-                }`}
+              className={`p-3 rounded-xl shadow-md transition cursor-pointer ${isDarkMode ? "bg-gray-700 text-white" : "bg-white text-gray-700"}`}
             >
               <User size={20} />
             </button>
-
           </div>
         </div>
 
-        {/* --- SEARCH SECTION --- */}
+        {/* --- SEARCH --- */}
         <div className="flex flex-row gap-2 sm:gap-4 mb-8">
           <input
             type="text"
             placeholder="Search trees..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className={`flex-1 p-3 w-full rounded-lg border outline-none focus:ring-2 focus:ring-green-500 transition text-sm sm:text-base ${isDarkMode ? "bg-gray-800 text-white border-gray-600" : "bg-white"
-              }`}
+            className={`flex-1 p-3 w-full rounded-lg border outline-none focus:ring-2 focus:ring-green-500 transition text-sm sm:text-base ${isDarkMode ? "bg-gray-800 text-white border-gray-600" : "bg-white"}`}
           />
           <select
             value={sortMode}
             onChange={(e) => setSortMode(e.target.value)}
-            className={`w-auto p-3 rounded-lg border outline-none focus:ring-2 focus:ring-green-500 transition text-sm sm:text-base ${isDarkMode ? "bg-gray-800 text-white border-gray-600" : "bg-white"
-              }`}
+            className={`w-auto p-3 rounded-lg border outline-none focus:ring-2 focus:ring-green-500 transition text-sm sm:text-base ${isDarkMode ? "bg-gray-800 text-white border-gray-600" : "bg-white"}`}
           >
             <option value="latest" className={isDarkMode ? "bg-gray-800" : ""}>Latest</option>
             <option value="az" className={isDarkMode ? "bg-gray-800" : ""}>A → Z</option>
@@ -299,7 +324,7 @@ const Dashboard = () => {
           </select>
         </div>
 
-        {/* Empty State */}
+        {/* --- EMPTY STATE --- */}
         {!filteredTrees.length && (
           <div className="text-center mt-10 sm:mt-20 opacity-70">
             <TreePine className="w-16 h-16 sm:w-20 sm:h-20 mx-auto" />
@@ -307,96 +332,98 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* Trees Grid */}
+        {/* --- TREES GRID --- */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTrees.map((tree) => (
-            <div
-              key={tree._id}
-              onClick={() => navigate(`/tree/${tree._id}`)}
-              className={`group relative p-6 rounded-2xl shadow-md hover:shadow-xl hover:-translate-y-1 border transition cursor-pointer ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white"
-                }`}
-            >
-              <div className="flex justify-between items-start mb-2">
-                <h3 className="text-xl font-bold truncate max-w-[70%]">{tree.name}</h3>
+          {filteredTrees.map((tree) => {
+            const canEdit = tree.currentUserRole === 'owner' || tree.currentUserRole === 'editor';
+            const isOwner = tree.currentUserRole === 'owner';
 
-                <div className="flex gap-2 items-center">
-                  {getRoleBadge(tree.currentUserRole)}
+            return (
+              <div
+                key={tree._id}
+                onClick={() => navigate(`/tree/${tree._id}`)}
+                className={`group relative p-6 rounded-2xl shadow-md hover:shadow-xl hover:-translate-y-1 border transition cursor-pointer ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white"}`}
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="text-xl font-bold truncate max-w-[70%]">{tree.name}</h3>
 
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSharingTreeId(tree._id);
-                    }}
-                    className="text-gray-400 hover:text-green-500 transition cursor-pointer ml-1 p-1"
-                    title="Share Tree"
-                  >
-                    <Share2 size={18} />
-                  </button>
+                  <div className="flex gap-2 items-center">
+                    {getRoleBadge(tree.currentUserRole)}
 
-                  {(tree.currentUserRole === 'owner' || tree.currentUserRole === 'editor') && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setEditingTree(tree);
-                        setEditTreeName(tree.name);
-                        setEditTreeDescription(tree.description || "");
-                        setShowModal(true);
+                        setSharingData({ id: tree._id, role: tree.currentUserRole });
                       }}
-                      className="text-gray-400 hover:text-blue-500 transition cursor-pointer ml-1 p-1"
+                      className="text-gray-400 hover:text-green-500 transition cursor-pointer ml-1 p-1"
+                      title="Share Tree"
                     >
-                      ✏️
+                      <Share2 size={18} />
                     </button>
-                  )}
 
-                  {tree.currentUserRole === 'owner' && (
-                    <button
-                      onClick={(e) => initiateDeleteTree(tree, e)}
-                      className="text-gray-400 hover:text-red-500 transition cursor-pointer ml-1 p-1"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  )}
+                    {canEdit && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingTree(tree);
+                          setEditTreeName(tree.name);
+                          setEditTreeDescription(tree.description || "");
+                          setShowModal(true);
+                        }}
+                        className="text-gray-400 hover:text-blue-500 transition cursor-pointer ml-1 p-1"
+                      >
+                        ✏️
+                      </button>
+                    )}
+
+                    {isOwner && (
+                      <button
+                        onClick={(e) => initiateDeleteTree(tree, e)}
+                        className="text-gray-400 hover:text-red-500 transition cursor-pointer ml-1 p-1"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {tree.currentUserRole !== 'owner' && tree.ownerId && (
+                  <p className="text-xs text-gray-500 mb-2">
+                    Owned by: <span className="font-semibold">{tree.ownerId.name}</span>
+                  </p>
+                )}
+
+                <p className="text-sm mb-3 opacity-90 line-clamp-2 min-h-[40px]">
+                  {tree.description || "No description available"}
+                </p>
+
+                <div className="text-xs opacity-80 pt-3 border-t border-gray-200 dark:border-gray-700 mt-2 flex justify-between items-center">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/tree/${tree._id}/list`);
+                    }}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded transition
+                      ${isDarkMode ? 'hover:bg-gray-700 text-blue-400' : 'hover:bg-blue-50 text-blue-600'}`}
+                    title="View All Members List"
+                  >
+                    <Users size={14} />
+                    <span className="font-semibold">{tree.membersCount} Members</span>
+                  </button>
+
+                  <span>Updated: {new Date(tree.updatedAt).toLocaleDateString()}</span>
                 </div>
               </div>
-
-              {tree.currentUserRole !== 'owner' && tree.ownerId && (
-                <p className="text-xs text-gray-500 mb-2">
-                  Owned by: <span className="font-semibold">{tree.ownerId.name}</span>
-                </p>
-              )}
-
-              <p className="text-sm mb-3 opacity-90 line-clamp-2 min-h-[40px]">
-                {tree.description || "No description available"}
-              </p>
-
-              <div className="text-xs opacity-80 pt-3 border-t border-gray-200 dark:border-gray-700 mt-2 flex justify-between items-center">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(`/tree/${tree._id}/list`);
-                  }}
-                  className={`flex items-center gap-1.5 px-2 py-1 rounded transition
-                    ${isDarkMode ? 'hover:bg-gray-700 text-blue-400' : 'hover:bg-blue-50 text-blue-600'}`}
-                  title="View All Members List"
-                >
-                  <Users size={14} />
-                  <span className="font-semibold">{tree.membersCount} Members</span>
-                </button>
-
-                <span>Updated: {new Date(tree.updatedAt).toLocaleDateString()}</span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* --- MODAL (Edit/Create Tree) --- */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className={`p-6 sm:p-8 rounded-2xl w-full max-w-md shadow-lg ${isDarkMode ? "bg-gray-800 text-white" : "bg-white"
-              }`}>
+            <div className={`p-6 sm:p-8 rounded-2xl w-full max-w-md shadow-lg ${isDarkMode ? "bg-gray-800 text-white" : "bg-white"}`}>
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold">New Family Tree</h2>
-                {/* Tab Switcher */}
                 <div className={`flex rounded-lg p-1 ${isDarkMode ? "bg-gray-700" : "bg-gray-100"}`}>
                   <button
                     onClick={() => setModalTab('create')}
@@ -468,48 +495,79 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* --- NOTIFICATIONS MODAL --- */}
+        {/* --- NOTIFICATIONS MODAL (COMBINED) --- */}
         {showNotifModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowNotifModal(false)}>
-            <div
-              className={`p-6 rounded-2xl w-full max-w-lg shadow-2xl relative max-h-[80vh] flex flex-col ${isDarkMode ? "bg-gray-800 text-white" : "bg-white"}`}
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold">Access Requests</h2>
-                <button onClick={() => setShowNotifModal(false)}><X size={24} /></button>
+            <div className={`p-6 rounded-2xl w-full max-w-lg shadow-2xl relative max-h-[85vh] flex flex-col ${isDarkMode ? "bg-gray-800 text-white" : "bg-white"}`} onClick={e => e.stopPropagation()}>
+              
+              <div className="flex justify-between items-center mb-6 border-b pb-4 dark:border-gray-700">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Bell size={24} className="text-blue-500" /> Notifications
+                </h2>
+                <button onClick={() => setShowNotifModal(false)} className={`p-2 rounded-full transition ${isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"}`}><X size={20} /></button>
               </div>
 
-              {pendingRequests.length === 0 ? (
-                <div className="text-center py-8 opacity-60">
-                  <Bell className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>No pending requests.</p>
+              {totalNotifications === 0 ? (
+                <div className="text-center py-12 opacity-60 flex flex-col items-center">
+                  <div className={`p-4 rounded-full mb-3 ${isDarkMode ? "bg-gray-700" : "bg-gray-100"}`}>
+                    <Bell className="w-8 h-8 opacity-50" />
+                  </div>
+                  <p>No new notifications.</p>
                 </div>
               ) : (
-                <div className="space-y-4 overflow-y-auto custom-scrollbar pr-2">
-                  {pendingRequests.map((req, idx) => (
-                    <div key={idx} className={`p-4 rounded-lg border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 ${isDarkMode ? "bg-gray-700 border-gray-600" : "bg-gray-50 border-gray-200"}`}>
-                      <div>
-                        <p className="font-bold text-sm sm:text-base">{req.user?.name || "Unknown User"}</p>
-                        <p className="text-xs opacity-70 mb-1">{req.user?.email}</p>
-                        <p className="text-xs flex items-center gap-1">
-                          wants to edit <TreePine size={12} className="text-green-500" /> <span className="font-semibold">{req.treeName}</span>
-                        </p>
-                      </div>
-                      <div className="flex gap-2 w-full sm:w-auto justify-end">
-                        <button
-                          onClick={() => handleManageRequest(req.treeId, req.user._id, true)}
-                          className="p-2 bg-green-100 text-green-700 rounded-full hover:bg-green-200" title="Approve">
-                          <Check size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleManageRequest(req.treeId, req.user._id, false)}
-                          className="p-2 bg-red-100 text-red-700 rounded-full hover:bg-red-200" title="Deny">
-                          <X size={18} />
-                        </button>
-                      </div>
+                <div className="space-y-6 overflow-y-auto custom-scrollbar pr-2 flex-1">
+                  
+                  {/* SECTION 1: INVITATIONS (I am invited) */}
+                  {invitations.length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Tree Invitations</h3>
+                      {invitations.map((invite) => (
+                        <div key={invite.tree._id} className={`p-4 rounded-xl border flex flex-col gap-3 ${isDarkMode ? "bg-slate-700/50 border-slate-600" : "bg-blue-50 border-blue-100"}`}>
+                          <div className="flex justify-between items-start">
+                            <div className="flex items-center gap-3">
+                              <div className={`p-2 rounded-full ${isDarkMode ? "bg-blue-900/50 text-blue-300" : "bg-blue-100 text-blue-600"}`}>
+                                <Mail size={18} />
+                              </div>
+                              <div>
+                                <p className="font-bold text-sm">{invite.tree.name}</p>
+                                <p className="text-xs opacity-70">Invited by {invite.sender?.name || "Owner"}</p>
+                              </div>
+                            </div>
+                            {getRoleBadge(invite.role)}
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={() => handleRespondInvite(invite.tree._id, true)} className="flex-1 bg-blue-600 text-white py-1.5 rounded-lg text-sm font-bold hover:bg-blue-700 transition">Accept</button>
+                            <button onClick={() => handleRespondInvite(invite.tree._id, false)} className={`flex-1 border py-1.5 rounded-lg text-sm font-bold transition ${isDarkMode ? "border-gray-600 hover:bg-gray-600" : "border-gray-300 hover:bg-gray-100"}`}>Decline</button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
+
+                  {/* SECTION 2: EDIT REQUESTS (Others requesting me) */}
+                  {pendingRequests.length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Edit Requests</h3>
+                      {pendingRequests.map((req, idx) => (
+                        <div key={idx} className={`p-4 rounded-xl border flex items-center justify-between gap-3 ${isDarkMode ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-200"}`}>
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-full ${isDarkMode ? "bg-amber-900/50 text-amber-300" : "bg-amber-100 text-amber-600"}`}>
+                              <UserPlus size={18} />
+                            </div>
+                            <div>
+                              <p className="font-bold text-sm">{req.user?.name}</p>
+                              <p className="text-xs opacity-70">wants to edit <span className="font-semibold">{req.treeName}</span></p>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={() => handleManageRequest(req.treeId, req.user._id, true)} className="p-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition"><Check size={16} /></button>
+                            <button onClick={() => handleManageRequest(req.treeId, req.user._id, false)} className="p-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition"><X size={16} /></button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                 </div>
               )}
             </div>
@@ -517,14 +575,15 @@ const Dashboard = () => {
         )}
 
         {/* --- SHARE MODAL --- */}
-        {sharingTreeId && (
+        {sharingData && (
           <ShareModal
-            treeId={sharingTreeId}
-            onClose={() => setSharingTreeId(null)}
+            treeId={sharingData.id}
+            currentUserRole={sharingData.role}
+            onClose={() => setSharingData(null)}
           />
         )}
 
-        {/* --- ✅ PROFILE MODAL --- */}
+        {/* --- PROFILE MODAL --- */}
         {showProfileModal && user && (
           <ProfileModal
             user={user}
@@ -534,13 +593,10 @@ const Dashboard = () => {
           />
         )}
 
-        {/* --- DELETE TREE CONFIRMATION MODAL --- */}
+        {/* --- DELETE CONFIRMATION MODAL --- */}
         {deleteTargetTree && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] backdrop-blur-sm p-4" onClick={() => setDeleteTargetTree(null)}>
-            <div
-              className={`p-8 rounded-3xl w-full max-w-sm shadow-2xl border ${isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-gray-100'}`}
-              onClick={e => e.stopPropagation()}
-            >
+            <div className={`p-8 rounded-3xl w-full max-w-sm shadow-2xl border ${isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-gray-100'}`} onClick={e => e.stopPropagation()}>
               <div className="text-center">
                 <div className="w-14 h-14 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-5">
                   <AlertTriangle size={28} />

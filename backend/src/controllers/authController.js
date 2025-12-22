@@ -397,6 +397,33 @@ const searchUsers = async (req, res) => {
   }
 };
 
+const getMyInvitations = async (req, res) => {
+  try {
+    // Find trees where user is a collaborator but accepted is false
+    const invitations = await Tree.find({
+      collaborators: { 
+        $elemMatch: { 
+          user: req.user._id, 
+          accepted: false 
+        } 
+      }
+    }).populate('ownerId', 'name email'); // To show who invited them
+
+    const result = invitations.map(tree => {
+      const myInvite = tree.collaborators.find(c => c.user.toString() === req.user._id.toString());
+      return {
+        tree: { _id: tree._id, name: tree.name },
+        sender: tree.ownerId,
+        role: myInvite.role
+      };
+    });
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   registerUser,
   verifyOTP,
@@ -408,5 +435,6 @@ module.exports = {
   forgotPassword,
   resetPassword,
   deleteAccount,
-  generateToken, // Exported for OAuth usage in routes
+  generateToken,
+  getMyInvitations
 };

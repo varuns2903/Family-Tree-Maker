@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import {
   X, Save, Trash2, UserPlus, FileText, Link as LinkIcon, ZoomIn, 
   Loader2, Edit, Plus, Phone, Calendar, Search, Heart, Info, 
-  Grid, AlertTriangle, ChevronLeft
+  Grid, AlertTriangle, ChevronLeft, User, Image as ImageIcon
 } from "lucide-react";
 import { FileUploaderRegular } from "@uploadcare/react-uploader";
 import "@uploadcare/react-uploader/core.css";
@@ -32,7 +32,10 @@ const MemberSidebar = ({
   const [potentialParents, setPotentialParents] = useState([]);
   const [newFieldKey, setNewFieldKey] = useState("");
   const [newFieldValue, setNewFieldValue] = useState("");
+  
+  // ✅ Expanded Add Form State
   const [addFormData, setAddFormData] = useState({});
+  
   const [relativeType, setRelativeType] = useState("");
   const [searchLinkQuery, setSearchLinkQuery] = useState("");
   const [linkChildrenIds, setLinkChildrenIds] = useState([]);
@@ -71,14 +74,6 @@ const MemberSidebar = ({
     if (!dob) return "";
     const diff = Date.now() - new Date(dob).getTime();
     return Math.floor(diff / 31556952000);
-  };
-
-  const getAnniversaryDate = (spouseId) => {
-    if (!member.weddings) return null;
-    const record = member.weddings.find((w) => String(w.spouseId) === String(spouseId));
-    return record?.date
-      ? new Date(record.date).toLocaleDateString(undefined, { dateStyle: "long" })
-      : null;
   };
 
   const getWeddingInputValue = (spouseId) => {
@@ -163,7 +158,6 @@ const MemberSidebar = ({
         return !hasParent(child, "fid");
       });
     }
-    // Father/Mother logic omitted for brevity, same as before
     return [];
   };
 
@@ -229,21 +223,6 @@ const MemberSidebar = ({
     }
   };
 
-  const handleLinkParent = async (parent) => {
-    if (!window.confirm(`Link ${parent.name} as ${parent.role}?`)) return;
-    setLoading(true);
-    try {
-      const payload = { [parent.key]: parent.id || parent._id };
-      const { data } = await api.put(`/trees/${treeId}/members/${member.id || member._id}`, payload);
-      onUpdate(data);
-      toast.success("Parent linked!");
-    } catch (error) {
-      toast.error("Failed to link parent");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleStartAdd = (type) => {
     setRelativeType(type);
     setLinkChildrenIds([]);
@@ -251,10 +230,18 @@ const MemberSidebar = ({
     if (type === "mother") defaultGender = "female";
     if (type === "spouse") defaultGender = member.gender === "male" ? "female" : "male";
 
+    // ✅ Initialize with all fields
     setAddFormData({
-      name: "", gender: defaultGender, birthDate: "", deathDate: "",
-      isAlive: true, img: DEFAULT_IMG, contactNo: "",
-      relativeId: member.id || member._id, relationType: type,
+      name: "", 
+      gender: defaultGender, 
+      birthDate: "", 
+      deathDate: "",
+      isAlive: true, 
+      img: DEFAULT_IMG, 
+      contactNo: "",
+      description: "",
+      relativeId: member.id || member._id, 
+      relationType: type,
     });
     setMode("add-form");
   };
@@ -328,7 +315,7 @@ const MemberSidebar = ({
             {mode === "view" && (
               <div className="animate-fade-in space-y-6">
                 
-                {/* HERO SECTION */}
+                {/* HERO SECTION (Same as before) */}
                 <div className="flex flex-col items-center">
                   <div className="relative group cursor-pointer" onClick={() => setShowImgModal(true)}>
                     <img
@@ -750,11 +737,32 @@ const MemberSidebar = ({
               </div>
             )}
 
-            {/* ================= ADD FORM MODE ================= */}
+            {/* ================= ADD FORM MODE (UPDATED WITH ALL FIELDS) ================= */}
             {mode === "add-form" && (
-              <form onSubmit={handleSaveNew} className="animate-fade-in space-y-4">
+              <form onSubmit={handleSaveNew} className="animate-fade-in space-y-5">
                 <div className={`text-xs p-3 rounded-xl border text-center ${isDarkMode ? 'bg-blue-900/20 border-blue-800 text-blue-300' : 'bg-blue-50 border-blue-100 text-blue-700'}`}>
                   Adding <span className="font-bold uppercase">{relativeType}</span> to <span className="font-bold">{member.name}</span>
+                </div>
+
+                {/* ✅ Image Uploader for New Relative */}
+                <div className="flex justify-center mb-2">
+                  <div className="flex flex-col items-center gap-3">
+                    <img 
+                      src={addFormData.img || DEFAULT_IMG} 
+                      className={`w-20 h-20 rounded-full object-cover border-2 ${isDarkMode ? 'border-slate-700' : 'border-gray-200'}`}
+                    />
+                    <div className={isDarkMode ? "uc-dark" : "uc-light"}>
+                      <FileUploaderRegular
+                        pubkey="8adc52d0c4bb04d5e668"
+                        classNameUploader="uc-purple"
+                        sourceList="local, camera, facebook"
+                        onFileUploadSuccess={(fileInfo) => {
+                          setAddFormData({ ...addFormData, img: fileInfo.cdnUrl });
+                          toast.success("Photo uploaded!");
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div>
@@ -792,6 +800,52 @@ const MemberSidebar = ({
                   </div>
                 </div>
 
+                {/* ✅ Alive/Deceased Toggle */}
+                <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                  <input
+                    type="checkbox"
+                    checked={addFormData.isAlive !== false}
+                    onChange={(e) => setAddFormData({ ...addFormData, isAlive: e.target.checked, deathDate: e.target.checked ? "" : addFormData.deathDate })}
+                    className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="font-bold text-sm">This person is alive</span>
+                </label>
+
+                {addFormData.isAlive === false && (
+                  <div>
+                    <label className={labelClass}>Death Date</label>
+                    <input
+                      type="date"
+                      className={inputClass}
+                      value={addFormData.deathDate || ""}
+                      onChange={(e) => setAddFormData({ ...addFormData, deathDate: e.target.value })}
+                    />
+                  </div>
+                )}
+
+                {/* ✅ Contact & Description */}
+                <div>
+                  <label className={labelClass}>Contact Number</label>
+                  <input
+                    className={inputClass}
+                    value={addFormData.contactNo || ""}
+                    onChange={(e) => setAddFormData({ ...addFormData, contactNo: e.target.value })}
+                    placeholder="Phone"
+                  />
+                </div>
+
+                <div>
+                  <label className={labelClass}>Bio / Description</label>
+                  <textarea
+                    value={addFormData.description || ""}
+                    onChange={(e) => setAddFormData({ ...addFormData, description: e.target.value })}
+                    placeholder="Add career info, memories..."
+                    className={inputClass}
+                    rows="3"
+                  />
+                </div>
+
+                {/* Link Existing Family Logic (Keep as is) */}
                 {linkableNodes.length > 0 && (
                   <div className={`p-4 rounded-xl border animate-in fade-in ${isDarkMode ? "bg-amber-900/10 border-amber-900/30" : "bg-amber-50 border-amber-200"}`}>
                     <p className={`text-sm font-bold mb-3 flex items-center gap-2 ${isDarkMode ? "text-amber-400" : "text-amber-700"}`}>
