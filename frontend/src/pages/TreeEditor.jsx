@@ -400,6 +400,8 @@ const TreeEditor = () => {
         treeRef.current = new FamilyTree(divRef.current, {
           template: currentTemplate,
           mode: isDarkMode ? "dark" : "light",
+          exportUrl: null,
+          menu: null,
           enableSearch: false,
           toolbar: false,
           mouseScrool: FamilyTree.action.zoom,
