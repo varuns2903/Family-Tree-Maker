@@ -7,7 +7,7 @@ const User = require('../models/User');
 // @access  Private
 const getTrees = async (req, res) => {
   try {
-    const userId = req.user.id.toString();
+    const userId = req.user._id.toString();
 
     // ✅ FIX: Only find shared trees where 'accepted' is TRUE
     let trees = await Tree.find({

@@ -60,13 +60,12 @@ const UserSchema = mongoose.Schema(
 UserSchema.pre('save', async function (next) {
   // 1. If password is NOT modified OR password doesn't exist (OAuth), exit early.
   if (!this.isModified('password') || !this.password) {
-    return next();
+    return ;
   }
 
   // 2. Otherwise, hash the password.
   const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-  next();
+  this.password = await bcrypt.hash(this.password, salt);;
 });
 
 // Helper Method: Match user entered password to hashed password
