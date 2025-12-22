@@ -11,7 +11,6 @@ const memberRoutes = require('./src/routes/memberRoutes');
 const gedcomRoutes = require('./src/routes/gedcomRoutes');
 
 const { errorHandler } = require('./src/middleware/errorMiddleware');
-const configurePassport = require('./src/config/passport');
 
 const app = express();
 app.use(express.json());
