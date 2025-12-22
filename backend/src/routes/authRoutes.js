@@ -28,6 +28,7 @@ router.post('/forgot-password', forgotPassword);
 router.put('/reset-password/:token', resetPassword);
 
 // --- 3. GOOGLE OAUTH ---
+// Trigger Google Login
 router.get('/google', 
   passport.authenticate('google', { scope: ['profile', 'email'] })
 );
@@ -45,14 +46,17 @@ router.get('/google/callback',
 );
 
 // --- 4. GITHUB OAUTH ---
+// Trigger GitHub Login
 router.get('/github', 
   passport.authenticate('github', { scope: ['user:email'] })
 );
 
+// GitHub Callback
 router.get('/github/callback', 
   passport.authenticate('github', { session: false, failureRedirect: '/login' }),
   (req, res) => {
     const token = generateToken(req.user._id);
+    
     res.redirect(`${process.env.FRONTEND_URL}/oauth-success?token=${token}&user=${encodeURIComponent(JSON.stringify({
         _id: req.user._id,
         name: req.user.name,

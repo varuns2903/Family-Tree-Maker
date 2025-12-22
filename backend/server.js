@@ -11,6 +11,7 @@ const memberRoutes = require('./src/routes/memberRoutes');
 const gedcomRoutes = require('./src/routes/gedcomRoutes');
 
 const { errorHandler } = require('./src/middleware/errorMiddleware');
+const configurePassport = require('./src/config/passport');
 
 const app = express();
 app.use(express.json());
@@ -20,24 +21,12 @@ connectDB();
 configurePassport();
 
 // Middleware
-const allowedOrigins = process.env.FRONTEND_URL.split(',');
-
-const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
-    return callback(null, false);
-  },
+app.use(cors({
+  origin: process.env.FRONTEND_URL,
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-};
+}));
 
-app.use(cors(corsOptions));
+configurePassport();
 
 // Mount Routes
 app.use('/api/auth', authRoutes);
