@@ -1,10 +1,15 @@
 import { PieChart, X, Calendar, Activity, Ghost, Users, Heart, Gift } from 'lucide-react';
 
-const StatsModal = ({ isOpen, onClose, stats, isDarkMode, onNodeClick }) => {
+const StatsModal = ({ isOpen, onClose, stats, onNodeClick }) => {
   if (!isOpen) return null;
 
-  const cardBaseClass = `p-4 rounded-2xl border text-center transition-all hover:scale-[1.02] ${
-    isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100 shadow-sm'
+  const isDarkMode = document.documentElement.classList.contains('dark');
+
+  // Common card style
+  const cardBaseClass = `p-4 rounded-2xl border text-center transition-transform hover:scale-[1.02] cursor-default ${
+    isDarkMode 
+      ? 'bg-slate-800/50 border-slate-700 shadow-sm' 
+      : 'bg-white border-slate-100 shadow-md'
   }`;
 
   // Get current month name (e.g., "OCT")
@@ -28,10 +33,10 @@ const StatsModal = ({ isOpen, onClose, stats, isDarkMode, onNodeClick }) => {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex justify-between items-center mb-6 sm:mb-8">
-          <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2.5">
-            <div className={`p-2 rounded-xl ${isDarkMode ? 'bg-blue-900/30' : 'bg-blue-50'}`}>
-              <PieChart className="text-blue-500" size={20} />
+        <div className={`flex justify-between items-center mb-6 sm:mb-8 pb-4 border-b ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
+          <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-3">
+            <div className={`p-2.5 rounded-xl ${isDarkMode ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-600'}`}>
+              <PieChart size={24} />
             </div>
             Family Insights
           </h2>
@@ -45,36 +50,43 @@ const StatsModal = ({ isOpen, onClose, stats, isDarkMode, onNodeClick }) => {
 
         {/* 1. Demographics Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
-          <div className={`col-span-2 sm:col-span-1 ${cardBaseClass} ${!isDarkMode && 'border-blue-100 bg-blue-50/30'}`}>
-            <div className="text-2xl sm:text-3xl font-extrabold text-blue-500 mb-1">{stats.total}</div>
+          
+          {/* Total Members */}
+          <div className={`col-span-2 sm:col-span-1 ${cardBaseClass} ${!isDarkMode && 'border-blue-100 bg-blue-50/50'}`}>
+            <div className="text-3xl sm:text-4xl font-extrabold text-blue-500 mb-1">{stats.total}</div>
             <div className={`text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 ${isDarkMode ? 'text-slate-400' : 'text-blue-700/60'}`}>
-              <Users size={12} /> Members
+              <Users size={14} /> Members
             </div>
           </div>
-          <div className={`${cardBaseClass} ${!isDarkMode && 'border-green-100 bg-green-50/30'}`}>
-            <div className="text-2xl sm:text-3xl font-extrabold text-green-500 mb-1">{stats.living}</div>
+
+          {/* Living */}
+          <div className={`${cardBaseClass} ${!isDarkMode && 'border-green-100 bg-green-50/50'}`}>
+            <div className="text-3xl sm:text-4xl font-extrabold text-green-500 mb-1">{stats.living}</div>
             <div className={`text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 ${isDarkMode ? 'text-slate-400' : 'text-green-700/60'}`}>
-              <Activity size={12} /> Living
+              <Activity size={14} /> Living
             </div>
           </div>
+
+          {/* Deceased */}
           <div className={`${cardBaseClass} ${!isDarkMode && 'border-slate-200 bg-slate-50'}`}>
-            <div className="text-2xl sm:text-3xl font-extrabold text-slate-500 mb-1">{stats.deceased}</div>
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center justify-center gap-1.5">
-              <Ghost size={12} /> Deceased
+            <div className={`text-3xl sm:text-4xl font-extrabold mb-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{stats.deceased}</div>
+            <div className={`text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+              <Ghost size={14} /> Deceased
             </div>
           </div>
         </div>
 
         {/* 2. Gender Split Bar */}
-        <div className="mb-8 sm:mb-10">
+        <div className={`mb-8 sm:mb-10 p-4 rounded-2xl border ${isDarkMode ? 'bg-slate-800/30 border-slate-700' : 'bg-slate-50/50 border-slate-100'}`}>
           <div className={`flex justify-between text-xs font-bold uppercase tracking-wider mb-3 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
             <span>Gender Distribution</span>
-            <span>
-              <span className="text-blue-500">{stats.male}M</span> / <span className="text-pink-500">{stats.female}F</span>
-              {stats.other > 0 && <span className="text-amber-500"> / {stats.other}O</span>}
+            <span className="flex gap-3">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500"></span> {stats.male}</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-pink-500"></span> {stats.female}</span>
+              {stats.other > 0 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500"></span> {stats.other}</span>}
             </span>
           </div>
-          <div className={`w-full rounded-full h-3 overflow-hidden flex shadow-inner ${isDarkMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
+          <div className={`w-full rounded-full h-4 overflow-hidden flex shadow-inner ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>
             <div className="h-full bg-blue-500" style={{ width: `${stats.total ? (stats.male / stats.total) * 100 : 0}%` }}></div>
             <div className="h-full bg-pink-500" style={{ width: `${stats.total ? (stats.female / stats.total) * 100 : 0}%` }}></div>
             <div className="h-full bg-amber-500" style={{ width: `${stats.total ? (stats.other / stats.total) * 100 : 0}%` }}></div>
@@ -84,21 +96,21 @@ const StatsModal = ({ isOpen, onClose, stats, isDarkMode, onNodeClick }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
           {/* 3. Celebrations (UPDATED UI) */}
-          <div className={`p-5 sm:p-6 rounded-2xl border flex flex-col h-[320px] 
-            ${isDarkMode ? 'bg-slate-800/30 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
+          <div className={`p-5 sm:p-6 rounded-2xl border flex flex-col h-[360px] 
+            ${isDarkMode ? 'bg-slate-800/30 border-slate-700' : 'bg-white border-slate-200 shadow-sm'}`}>
             
             <h3 className={`font-bold mb-4 flex items-center gap-2 ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
-              <div className={`p-1.5 rounded-lg ${isDarkMode ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-500'}`}>
-                <Gift size={16} /> 
+              <div className={`p-1.5 rounded-lg ${isDarkMode ? 'bg-red-900/30 text-red-400' : 'bg-red-100 text-red-600'}`}>
+                <Gift size={18} /> 
               </div>
               Celebrations (This Month)
             </h3>
 
-            <div className="flex-1 overflow-y-auto no-scrollbar pr-2">
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
               {(!stats.upcomingEvents || stats.upcomingEvents.length === 0) ? (
-                <div className="h-full flex flex-col items-center justify-center opacity-50 text-sm">
-                  <Calendar size={32} className="mb-2 opacity-50" />
-                  No events this month.
+                <div className={`h-full flex flex-col items-center justify-center text-sm ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                  <Calendar size={48} className="mb-3 opacity-20" />
+                  No upcoming birthdays or anniversaries.
                 </div>
               ) : (
                 <ul className="space-y-3">
@@ -106,8 +118,10 @@ const StatsModal = ({ isOpen, onClose, stats, isDarkMode, onNodeClick }) => {
                     <li 
                         key={i} 
                         onClick={() => onNodeClick(evt.id)}
-                        className={`flex items-center justify-between p-3 rounded-xl transition cursor-pointer group
-                        ${isDarkMode ? 'bg-slate-800 hover:bg-slate-750 hover:border-slate-600' : 'bg-slate-50 hover:bg-blue-50 hover:border-blue-200'} border border-transparent`}
+                        className={`flex items-center justify-between p-3 rounded-xl transition cursor-pointer group border
+                        ${isDarkMode 
+                          ? 'bg-slate-800/50 border-slate-700 hover:bg-slate-700 hover:border-slate-600' 
+                          : 'bg-slate-50 border-slate-100 hover:bg-white hover:shadow-md hover:border-blue-100'}`}
                     >
                       <div className="flex items-center gap-3 overflow-hidden">
                           {/* Icon Circle */}
@@ -123,7 +137,7 @@ const StatsModal = ({ isOpen, onClose, stats, isDarkMode, onNodeClick }) => {
                               <span className={`block font-bold text-sm truncate ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
                                 {evt.name}
                               </span>
-                              <span className="text-xs opacity-60 font-medium block truncate">
+                              <span className={`text-xs font-medium block truncate ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                                   {evt.type === 'birthday' 
                                     ? `Turning ${evt.age}` 
                                     : `${getOrdinal(evt.years)} Anniversary`}
@@ -132,8 +146,8 @@ const StatsModal = ({ isOpen, onClose, stats, isDarkMode, onNodeClick }) => {
                       </div>
                       
                       {/* Date Badge (Calendar Leaf Style) */}
-                      <div className={`flex flex-col items-center justify-center w-12 h-12 rounded-lg border flex-shrink-0 ml-3
-                        ${isDarkMode ? 'bg-slate-700/50 border-slate-600' : 'bg-white border-slate-200 shadow-sm'}`}>
+                      <div className={`flex flex-col items-center justify-center w-12 h-12 rounded-lg border flex-shrink-0 ml-3 shadow-sm
+                        ${isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'}`}>
                           <span className="text-[9px] font-bold text-red-500 uppercase leading-none mb-0.5">
                             {currentMonthShort}
                           </span>
@@ -149,32 +163,32 @@ const StatsModal = ({ isOpen, onClose, stats, isDarkMode, onNodeClick }) => {
           </div>
 
           {/* 4. Decade Breakdown */}
-          <div className={`p-5 sm:p-6 rounded-2xl border flex flex-col h-[320px]
-            ${isDarkMode ? 'bg-slate-800/30 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
+          <div className={`p-5 sm:p-6 rounded-2xl border flex flex-col h-[360px]
+            ${isDarkMode ? 'bg-slate-800/30 border-slate-700' : 'bg-white border-slate-200 shadow-sm'}`}>
             
             <h3 className={`font-bold mb-4 flex items-center gap-2 ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
-              <div className={`p-1.5 rounded-lg ${isDarkMode ? 'bg-indigo-900/30 text-indigo-400' : 'bg-indigo-50 text-indigo-500'}`}>
-                <Activity size={16} /> 
+              <div className={`p-1.5 rounded-lg ${isDarkMode ? 'bg-indigo-900/30 text-indigo-400' : 'bg-indigo-100 text-indigo-600'}`}>
+                <Activity size={18} /> 
               </div>
               Born in Era
             </h3>
 
-            <div className="flex-1 overflow-y-auto no-scrollbar pr-2 space-y-3">
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-4">
               {Object.entries(stats.decadeCounts || {})
                 .sort((a, b) => b[0] - a[0]) 
                 .map(([decade, count]) => (
-                <div key={decade} className="flex items-center gap-3 text-sm">
-                  <span className={`w-12 font-mono text-xs font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                <div key={decade} className="flex items-center gap-3 text-sm group">
+                  <span className={`w-12 font-mono text-xs font-bold ${isDarkMode ? 'text-slate-500 group-hover:text-slate-300' : 'text-slate-400 group-hover:text-slate-600'} transition-colors`}>
                     {decade}s
                   </span>
-                  <div className={`flex-1 h-2.5 rounded-full overflow-hidden ${isDarkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
-                    <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(count / stats.total) * 100}%` }}></div>
+                  <div className={`flex-1 h-3 rounded-full overflow-hidden ${isDarkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
+                    <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000 ease-out" style={{ width: `${(count / stats.total) * 100}%` }}></div>
                   </div>
                   <span className={`w-6 text-right font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>{count}</span>
                 </div>
               ))}
               {Object.keys(stats.decadeCounts || {}).length === 0 && (
-                <div className="h-full flex flex-col items-center justify-center opacity-50 text-sm">
+                <div className={`h-full flex flex-col items-center justify-center text-sm ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                   No birth date data available.
                 </div>
               )}

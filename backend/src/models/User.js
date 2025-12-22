@@ -69,7 +69,7 @@ UserSchema.pre('save', async function (next) {
   next();
 });
 
-// ✅ Helper Method: Match user entered password to hashed password
+// Helper Method: Match user entered password to hashed password
 UserSchema.methods.matchPassword = async function (enteredPassword) {
   // Guard clause: If user has no password (OAuth), return false
   if (!this.password) return false;

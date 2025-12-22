@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./src/config/db');
+const configurePassport = require('./src/config/passport');
 
 // Import Routes
 const authRoutes = require('./src/routes/authRoutes');
@@ -17,6 +18,7 @@ app.use(express.json());
 
 // Connect to Mongo
 connectDB();
+configurePassport();
 
 // Middleware
 app.use(cors({

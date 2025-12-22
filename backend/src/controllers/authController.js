@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Tree = require('../models/Tree'); // Required for deleteAccount
 const Member = require('../models/Member'); // Required for deleteAccount
 const sendEmail = require('../utils/sendEmail');
+const getEmailTemplate = require('../utils/emailTemplates')
 
 // Helper: Generate JWT
 const generateToken = (id) => {
@@ -61,13 +62,18 @@ const registerUser = async (req, res) => {
     }
 
     // Send Verification Email
-    const message = `Your verification code is: ${otp}\n\nThis code expires in 10 minutes.`;
+    const htmlMessage = getEmailTemplate(
+      'Verify Your Email',
+      'Thank you for joining! To complete your registration, please enter the code below:',
+      'otp',
+      otp
+    );
     
     try {
       await sendEmail({
         email: user.email,
         subject: 'Verify your email - Family Tree App',
-        message
+        html: htmlMessage
       });
       
       res.status(200).json({ 
@@ -188,13 +194,18 @@ const forgotPassword = async (req, res) => {
     // Create Reset URL
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
-    const message = `You are receiving this email because you (or someone else) has requested the reset of a password. \n\n Please make a PUT request to: \n ${resetUrl}`;
+    const htmlMessage = getEmailTemplate(
+      'Password Reset Request',
+      'We received a request to reset your password. Click the button below to choose a new password:',
+      'link',
+      resetUrl
+    );
 
     try {
       await sendEmail({
         email: user.email,
         subject: 'Password Reset Token',
-        message
+        html: htmlMessage
       });
 
       res.status(200).json({ message: 'Email sent' });
@@ -386,6 +397,33 @@ const searchUsers = async (req, res) => {
   }
 };
 
+const getMyInvitations = async (req, res) => {
+  try {
+    // Find trees where user is a collaborator but accepted is false
+    const invitations = await Tree.find({
+      collaborators: { 
+        $elemMatch: { 
+          user: req.user._id, 
+          accepted: false 
+        } 
+      }
+    }).populate('ownerId', 'name email'); // To show who invited them
+
+    const result = invitations.map(tree => {
+      const myInvite = tree.collaborators.find(c => c.user.toString() === req.user._id.toString());
+      return {
+        tree: { _id: tree._id, name: tree.name },
+        sender: tree.ownerId,
+        role: myInvite.role
+      };
+    });
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   registerUser,
   verifyOTP,
@@ -397,5 +435,6 @@ module.exports = {
   forgotPassword,
   resetPassword,
   deleteAccount,
-  generateToken, // Exported for OAuth usage in routes
+  generateToken,
+  getMyInvitations
 };

@@ -10,7 +10,9 @@ const {
   updateTree,
   joinTree,
   getCollaborators,
-  manageRole
+  manageRole,
+  inviteUser,
+  respondToInvite // ✅ Imported
 } = require('../controllers/treeController');
 
 // Import the member router to mount it (Sub-routing)
@@ -29,7 +31,11 @@ router.post('/join/:shareToken', protect, joinTree);
 // 1. Get list of collaborators
 router.get('/:id/collaborators', protect, getCollaborators);
 
-// 2. Manage Roles (Request Access OR Owner promotes/demotes)
+// 2. Invitation Management
+router.post('/:id/invite', protect, inviteUser);
+router.put('/:id/invite/respond', protect, respondToInvite); // ✅ New Route for Accept/Decline
+
+// 3. Manage Roles (Request Access OR Owner promotes/demotes)
 // We do NOT enforce checkAccess('owner') here because Viewers need to call this to "request" access.
 // The controller logic ensures Viewers can only perform the 'request' action.
 router.put('/:id/role', protect, manageRole);
@@ -41,5 +47,8 @@ router.route('/:id')
   .put(protect, checkAccess('editor'), updateTree) 
   // Only 'owner' can delete the entire tree
   .delete(protect, checkAccess('owner'), deleteTree);
+
+// Mount Member Routes (e.g., /api/trees/:treeId/members)
+router.use('/:treeId/members', memberRoutes);
 
 module.exports = router;

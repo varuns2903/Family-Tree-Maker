@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 
-// 1. Fixed: Added 'new' before mongoose.Schema
 const TreeSchema = new mongoose.Schema(
   {
     ownerId: {
@@ -22,10 +21,15 @@ const TreeSchema = new mongoose.Schema(
     collaborators: [{
       user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
       role: { type: String, enum: ['viewer', 'editor'], default: 'viewer' },
+      
+      // ✅ Added: Track if they accepted the invite
+      accepted: { type: Boolean, default: false }, 
+      
+      // Track if a viewer requested edit access
       requestedEdit: { type: Boolean, default: false }
     }],
     
-    // Share Token
+    // Share Token for public links
     shareToken: { type: String, unique: true, sparse: true }
   },
   {
@@ -33,10 +37,8 @@ const TreeSchema = new mongoose.Schema(
   }
 );
 
-// 2. Fixed: Use 'async function' and REMOVE 'next' parameter entirely.
-// Mongoose 6/7/8+ handles async functions automatically.
+// Auto-generate shareToken if missing
 TreeSchema.pre('save', async function() {
-  // 'this' refers to the document being saved
   if (!this.shareToken) {
     this.shareToken = Math.random().toString(36).substring(2, 15) + 
                       Math.random().toString(36).substring(2, 15);
