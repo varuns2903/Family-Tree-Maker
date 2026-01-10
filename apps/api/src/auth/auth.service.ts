@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { Neo4jService } from '../neo4j/neo4j.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { hashToken } from './utils/token-hash';
 
 @Injectable()
 export class AuthService {
@@ -74,22 +75,31 @@ export class AuthService {
   }
 
   async refresh(payload: any, refreshToken: string) {
+    const refreshTokenHash = hashToken(refreshToken);
+
     const result = await this.neo4j.read(
       `
-      MATCH (u:User { id: $id })
-      RETURN u
-      `,
-      { id: payload.sub },
+    MATCH (u:User { id: $userId })-[:HAS_REFRESH_TOKEN]->(t:RefreshToken)
+    WHERE t.tokenHash = $tokenHash
+    RETURN u
+    `,
+      {
+        userId: payload.sub,
+        tokenHash: refreshTokenHash,
+      },
     );
 
     if (!result.records.length) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('Invalid refresh token');
     }
 
-    return this.issueTokens(result.records[0].get('u').properties);
+    const user = result.records[0].get('u').properties;
+
+    // Rotate token (old one deleted in issueTokens)
+    return this.issueTokens(user);
   }
 
-  private issueTokens(user: any) {
+  private async issueTokens(user: any) {
     const accessToken = this.jwt.sign(
       {
         sub: user.id,
@@ -106,11 +116,42 @@ export class AuthService {
       {
         sub: user.id,
         type: 'refresh',
-        tokenId: uuid(),
+        tokenId: crypto.randomUUID(),
       },
       {
         secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
         expiresIn: '30d',
+      },
+    );
+
+    const refreshTokenHash = hashToken(refreshToken);
+
+    // Remove old refresh tokens (rotation)
+    await this.neo4j.write(
+      `
+    MATCH (u:User { id: $userId })-[:HAS_REFRESH_TOKEN]->(t:RefreshToken)
+    DETACH DELETE t
+    `,
+      { userId: user.id },
+    );
+
+    // Store new hashed refresh token
+    await this.neo4j.write(
+      `
+    MATCH (u:User { id: $userId })
+    CREATE (t:RefreshToken {
+      id: $id,
+      tokenHash: $tokenHash,
+      userId: $userId,
+      createdAt: datetime(),
+      expiresAt: datetime() + duration('P30D')
+    })
+    CREATE (u)-[:HAS_REFRESH_TOKEN]->(t)
+    `,
+      {
+        id: crypto.randomUUID(),
+        tokenHash: refreshTokenHash,
+        userId: user.id,
       },
     );
 
@@ -123,5 +164,15 @@ export class AuthService {
       accessToken,
       refreshToken,
     };
+  }
+
+  async logout(userId: string) {
+    await this.neo4j.write(
+      `
+    MATCH (u:User { id: $userId })-[:HAS_REFRESH_TOKEN]->(t:RefreshToken)
+    DETACH DELETE t
+    `,
+      { userId },
+    );
   }
 }

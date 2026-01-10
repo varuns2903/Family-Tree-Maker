@@ -3,6 +3,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
+import { JwtAccessGuard } from './guards/jwt-access.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -22,5 +23,12 @@ export class AuthController {
   @Post('refresh')
   refresh(@Req() req, @Body() body) {
     return this.auth.refresh(req.user, body.refreshToken);
+  }
+
+  @Post('logout')
+  @UseGuards(JwtAccessGuard)
+  async logout(@Req() req) {
+    await this.auth.logout(req.user.userId);
+    return { success: true };
   }
 }
