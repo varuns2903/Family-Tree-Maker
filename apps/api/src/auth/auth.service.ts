@@ -210,6 +210,49 @@ export class AuthService {
     return this.issueTokens(user);
   }
 
+  async oauthLogin(oauthUser: {
+    provider: 'google' | 'github';
+    providerId: string;
+    email: string;
+    name: string;
+    avatar?: string;
+  }) {
+    const result = await this.neo4j.read(
+      `
+    MATCH (u:User { email: $email })
+    RETURN u
+    `,
+      { email: oauthUser.email },
+    );
+
+    let user;
+
+    if (result.records.length) {
+      user = result.records[0].get('u').properties;
+    } else {
+      const created = await this.neo4j.write(
+        `
+      CREATE (u:User {
+        id: randomUUID(),
+        name: $name,
+        email: $email,
+        avatarUrl: $avatar,
+        authProvider: $provider,
+        providerId: $providerId,
+        status: "ACTIVE",
+        createdAt: datetime()
+      })
+      RETURN u
+      `,
+        oauthUser,
+      );
+
+      user = created.records[0].get('u').properties;
+    }
+
+    return this.issueTokens(user);
+  }
+
   private async issueTokens(user: any) {
     const accessToken = this.jwt.sign(
       {
