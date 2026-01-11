@@ -4,6 +4,7 @@ import { AuthModule } from './auth/auth.module';
 import { Neo4jModule } from './neo4j/neo4j.module';
 import { envValidationSchema } from './config/env.validation';
 import { TestController } from './test/test.controller';
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { TestController } from './test/test.controller';
       validationSchema: envValidationSchema,
     }),
     Neo4jModule,
+    EmailModule,
     AuthModule,
   ],
   controllers: [TestController],

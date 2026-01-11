@@ -11,6 +11,9 @@ import { Neo4jService } from '../neo4j/neo4j.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { hashToken } from './utils/token-hash';
+import { generateOtp, hashOtp } from './utils/otp';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { EmailService } from 'src/email/email.service';
 
 @Injectable()
 export class AuthService {
@@ -18,6 +21,7 @@ export class AuthService {
     private readonly neo4j: Neo4jService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly emailService: EmailService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -25,29 +29,136 @@ export class AuthService {
       throw new BadRequestException('Passwords do not match');
     }
 
+    const existingUser = await this.neo4j.read(
+      `MATCH (u:User { email: $email }) RETURN u`,
+      { email: dto.email },
+    );
+
+    if (existingUser.records.length) {
+      throw new BadRequestException('Email already registered');
+    }
+
+    const otp = generateOtp();
+    const otpHash = hashOtp(otp);
+
+    // Delete old OTP if exists
+    await this.neo4j.write(
+      `
+    MATCH (e:EmailVerification { email: $email })
+    DETACH DELETE e
+    `,
+      { email: dto.email },
+    );
+
+    await this.neo4j.write(
+      `
+    CREATE (e:EmailVerification {
+      id: randomUUID(),
+      email: $email,
+      otpHash: $otpHash,
+      attempts: 0,
+      createdAt: datetime(),
+      expiresAt: datetime() + duration('PT10M')
+    })
+    `,
+      {
+        email: dto.email,
+        otpHash,
+      },
+    );
+
+    await this.emailService.sendOtp(dto.email, otp);
+
+    return {
+      message: 'OTP sent to email',
+    };
+  }
+
+  async verifyOtp(dto: VerifyOtpDto) {
+    const otpHash = hashOtp(dto.otp);
+
+    const result = await this.neo4j.read(
+      `
+    MATCH (e:EmailVerification { email: $email })
+    RETURN e
+    `,
+      { email: dto.email },
+    );
+
+    if (!result.records.length) {
+      throw new UnauthorizedException('OTP expired or invalid');
+    }
+
+    const verification = result.records[0].get('e').properties;
+
+    if (verification.attempts >= 5) {
+      throw new UnauthorizedException('Too many attempts');
+    }
+
+    if (verification.otpHash !== otpHash) {
+      await this.neo4j.write(
+        `
+      MATCH (e:EmailVerification { email: $email })
+      SET e.attempts = e.attempts + 1
+      `,
+        { email: dto.email },
+      );
+      throw new UnauthorizedException('Invalid OTP');
+    }
+
+    // Create user
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
     const user = await this.neo4j.write(
       `
-      CREATE (u:User {
-        id: $id,
-        name: $name,
-        email: $email,
-        passwordHash: $passwordHash,
-        authProvider: "local",
-        createdAt: datetime()
-      })
-      RETURN u
-      `,
+    CREATE (u:User {
+      id: randomUUID(),
+      name: $name,
+      email: $email,
+      passwordHash: $passwordHash,
+      authProvider: "local",
+      status: "ACTIVE",
+      createdAt: datetime()
+    })
+    RETURN u
+    `,
       {
-        id: uuid(),
         name: dto.name,
         email: dto.email,
         passwordHash,
       },
     );
 
+    // Cleanup OTP
+    await this.neo4j.write(
+      `
+    MATCH (e:EmailVerification { email: $email })
+    DETACH DELETE e
+    `,
+      { email: dto.email },
+    );
+
     return this.issueTokens(user.records[0].get('u').properties);
+  }
+
+  async resendOtp(email: string) {
+    const otp = generateOtp();
+    const otpHash = hashOtp(otp);
+
+    await this.neo4j.write(
+      `
+    MATCH (e:EmailVerification { email: $email })
+    SET e.otpHash = $otpHash,
+        e.attempts = 0,
+        e.createdAt = datetime(),
+        e.expiresAt = datetime() + duration('PT10M')
+    `,
+      { email, otpHash },
+    );
+
+    await this.emailService.sendOtp(email, otp);
+
+    return { message: 'OTP resent successfully' };
   }
 
   async login(dto: LoginDto) {
