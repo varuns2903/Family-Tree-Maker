@@ -1,0 +1,76 @@
+# --- Node / General ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+dist/
+build/
+.tmp/
+.cache/
+.logs/
+*.log
+logs/
+coverage/
+.eslintcache
+*.pid
+*.seed
+*.tgz
+*.orig
+*.tsbuildinfo
+
+# --- Environment Variables ---
+.env
+.env.*
+!.env.example
+
+# --- OS / System ---
+.DS_Store
+Thumbs.db
+
+# --- IDE / Editor ---
+.vscode/
+.idea/
+*.swp
+
+# --- Backend (Node/Express) ---
+backend/node_modules/
+backend/dist/
+backend/build/
+backend/coverage/
+backend/*.log
+backend/.env
+backend/.env.*
+backend/!.env.example
+
+# --- Frontend (React) ---
+frontend/node_modules/
+frontend/build/
+frontend/dist/
+frontend/.cache/
+frontend/coverage/
+frontend/*.log
+frontend/.env
+frontend/.env.*
+frontend/!.env.example
+
+# --- MongoDB Dumps ---
+dump/
+*.bson
+*.json
+*.gz
+
+# --- Docker ---
+docker-compose.override.yml
+*.env.docker
+
+# --- Optional: TypeScript ---
+*.tsbuildinfo
+
+# --- Optional: PM2 logs ---
+.pm2/
+
+# --- Optional: Uploads ---
+uploads/
+public/uploads/
+
