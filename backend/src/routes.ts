@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { authRoutes } from "./modules/auth/auth.routes";
+import { treeRoutes } from "./modules/trees/tree.routes";
 
 export const routes = Router();
 
@@ -11,3 +12,4 @@ routes.get("/health", (_req, res) => {
 });
 
 routes.use("/auth", authRoutes);
+routes.use("/trees", treeRoutes);
