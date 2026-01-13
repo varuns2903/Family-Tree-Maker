@@ -17,3 +17,6 @@ export const signRefreshToken = (userId: string) =>
 
 export const verifyAccessToken = (token: string) =>
   jwt.verify(token, env.JWT_ACCESS_SECRET) as { sub: string };
+
+export const verifyRefreshToken = (token: string) =>
+  jwt.verify(token, env.JWT_REFRESH_SECRET) as { sub: string };

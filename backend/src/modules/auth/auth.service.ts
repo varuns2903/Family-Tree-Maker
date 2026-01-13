@@ -2,7 +2,8 @@ import { UserModel } from "../users/user.model";
 import { hashPassword, verifyPassword } from "../../utils/password";
 import {
   signAccessToken,
-  signRefreshToken
+  signRefreshToken,
+  verifyRefreshToken
 } from "../../utils/jwt";
 
 const buildAuthResponse = (user: any) => ({
@@ -51,4 +52,34 @@ export const loginUser = async (
   }
 
   return buildAuthResponse(user);
+};
+
+export const getCurrentUser = async (userId: string) => {
+  const user = await UserModel.findById(userId).select(
+    "_id name email"
+  );
+
+  if (!user) {
+    throw { statusCode: 404, message: "User not found" };
+  }
+
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email
+  };
+};
+
+export const refreshTokens = async (refreshToken: string) => {
+  const payload = verifyRefreshToken(refreshToken);
+
+  return {
+    accessToken: signAccessToken(payload.sub),
+    refreshToken: signRefreshToken(payload.sub)
+  };
+};
+
+export const logoutUser = async () => {
+  // Stateless logout for now
+  return;
 };
